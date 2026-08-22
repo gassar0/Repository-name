@@ -64,17 +64,24 @@ def login():
         token = generate_jwt(row[0], data.get('username'))
         return jsonify({"status": "success", "access_token": token}), 200
     return jsonify({"status": "fail", "message": "بيانات الدخول خطأ"}), 401
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    # ... كود تسجيل الدخول الخاص بك ...
 
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
-from flask_jwt_extended import jwt_required, get_jwt_identity
-
+# 1. ضع المسار المحمي هنا أولاً
 @app.route('/api/protected', methods=['GET'])
 @jwt_required()
 def protected_route():
     current_user = get_jwt_identity()
     return {
         "status": "success",
-        "message": f"أهلاً بك يا {current_user}, لقد وصلت إلى مسار محمي بنجاح!"
+        "message": f"لقد وصلت إلى مسار محمي بنجاح، مرحباً {current_user}"
     }, 200
+
+# 2. اجعل جملة التشغيل في النهاية تماماً ولا تكتب تحتها شيئاً
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
+    
+
+    
