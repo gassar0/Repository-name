@@ -68,3 +68,13 @@ def login():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
+@app.route('/api/protected', methods=['GET'])
+@jwt_required()
+def protected_route():
+    current_user = get_jwt_identity()
+    return {
+        "status": "success",
+        "message": f"أهلاً بك يا {current_user}, لقد وصلت إلى مسار محمي بنجاح!"
+    }, 200
