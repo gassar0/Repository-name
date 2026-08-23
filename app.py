@@ -94,8 +94,29 @@ def get_inventory():
 
 
 # 2. مسار لإضافة منتج جديد (محمي بالـ Token الذي استخرجناه)
-@app.route('/api/inventory', methods=['POST'])request.method
+@app.route('/api/inventory', methods=['GET', 'POST'])
 def add_item():
+    if request.method == 'GET':
+        name = "شاشة كمبيوتر"
+        price = 1200
+        stock = 5
+    else:
+        data = request.get_json() or {}
+        name = data.get('name')
+        price = data.get('price')
+        stock = data.get('stock')
+
+    if not name or price is None or stock is None:
+        return jsonify({"status": "fail", "message": "الرجاء إدخال اسم المنتج والسعر والكمية"}), 400
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO inventory (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح!", "data": {"name": name, "price": price, "stock": stock}})
+
     data = request.get_json() or {}
     name = data.get('name')
     price = data.get('price')
