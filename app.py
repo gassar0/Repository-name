@@ -95,7 +95,24 @@ def get_inventory():
 
 # 2. مسار لإضافة منتج جديد (محمي بالـ Token الذي استخرجناه)
 @app.route('/api/inventory/add', methods=['GET'])
-def add_test_item():
+def add_test_item():     # دالة الاختبار القديمة
+    return jsonify({"status": "success", "message": "تم إضافة منتج تجريبي"})
+
+@app.route('/api/inventory/add-item', methods=['POST'])
+def add_real_item():
+    data = request.get_json() or {}
+    name = data.get('name')
+    price = data.get('price')
+    stock = data.get('stock')
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO inventory (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح!"})
+
     name = "شاشة كمبيوتر"
     price = 1200
     stock = 5
