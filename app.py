@@ -37,5 +37,24 @@ def home():
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     data = request.get_json() or {}
-    try:
+        try:
+        data = request.get_json() or {}
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}), 400
+            
+        hashed_pw = hash_password(password)
+        
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "تم تسجيل المستخدم بنجاح!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
         
