@@ -71,6 +71,47 @@ def protected_route():
         "status": "success",
         "message": f"لقد وصلت إلى مسار محمي بنجاح، مرحباً {current_user}"
     }), 200
+# 1. مسار لجلب وعرض كل المنتجات في المخزون (متاح للجميع)
+@app.route('/api/inventory', methods=['GET'])
+def get_inventory():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, price, stock FROM inventory")
+    items = cursor.fetchall()
+    conn.close()
+    
+    # تحويل البيانات إلى شكل يفهمه الـ API
+    inventory_list = []
+    for item in items:
+        inventory_list.append({
+            "id": item[0],
+            "name": item[1],
+            "price": item[2],
+            "stock": item[3]
+        })
+        
+    return jsonify({"status": "success", "data": inventory_list}), 200
+
+
+# 2. مسار لإضافة منتج جديد (محمي بالـ Token الذي استخرجناه)
+@app.route('/api/inventory', methods=['POST'])
+@jwt_required()
+def add_item():
+    data = request.get_json() or {}
+    name = data.get('name')
+    price = data.get('price')
+    stock = data.get('stock')
+    
+    if not name or price is None or stock is None:
+        return jsonify({"status": "fail", "message": "الرجاء إدخال اسم المنتج والسعر والكمية"}), 400
+        
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO inventory (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح للمخزون"}), 201
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
