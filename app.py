@@ -33,12 +33,10 @@ conn.close()
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({"status": "online", "message": "السيرفر يعمل بنجاح على الاستضافة السحابية!"})
-
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     data = request.get_json() or {}
-        try:
-        data = request.get_json() or {}
+    try:
         username = data.get('username')
         password = data.get('password')
         
@@ -57,4 +55,4 @@ def register():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
         
-        
+
