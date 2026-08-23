@@ -125,7 +125,7 @@ def add_real_item():
 
     return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح!", "data": {"name": name, "price": price, "stock": stock}})
     @app.route('/api/inventory/add-item', methods=['POST'])
-def add_real_item():
+defadd_real_item():
     data = request.get_json() or {}
     name = data.get('name')
     price = data.get('price')
