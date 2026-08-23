@@ -64,7 +64,7 @@ def login():
     return jsonify({"status": "fail", "message": "بيانات الدخول خطأ"}), 401
 
 @app.route('/api/protected', methods=['GET'])
-@jwt_required()
+
 def protected_route():
     current_user = get_jwt_identity()
     return jsonify({
