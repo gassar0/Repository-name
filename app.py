@@ -117,26 +117,5 @@ def add_real_item():
     price = 1200
     stock = 5
 
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO inventory (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
-    conn.commit()
-    conn.close()
-
-    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح!", "data": {"name": name, "price": price, "stock": stock}})
     
-@app.route('/api/inventory/add-item', methods=['POST'])
-def add_real_item():
-    data = request.get_json() or {}
-    name = data.get('name')
-    price = data.get('price')
-    stock = data.get('stock')
     
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO inventory (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح!"})
-  
