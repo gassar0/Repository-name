@@ -94,7 +94,7 @@ def get_inventory():
 
 
 # 2. مسار لإضافة منتج جديد (محمي بالـ Token الذي استخرجناه)
-@app.route('/api/inventory', methods=['POST'])
+@app.route('/api/inventory', methods=['POST'])request.method
 def add_item():
     data = request.get_json() or {}
     name = data.get('name')
