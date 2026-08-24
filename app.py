@@ -74,5 +74,35 @@ def register():
         return jsonify({"status": "success", "message": "تم تسجيل المستخدم بنجاح!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.get_json() or {}
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"status": "error", "message": "الرجاء إدخال اسم المستخدم وكلمة المرور"}), 400
+        
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, password FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if not user:
+        return jsonify({"status": "error", "message": "اسم المستخدم غير مسجل"}), 401
+        
+    stored_password_hash = user[2]
+    input_password_hash = hash_password(password)
+    
+    if hmac.compare_digest(input_password_hash, stored_password_hash):
+        token = generate_jwt(user[0], user[1])
+        return jsonify({
+            "status": "success",
+            "message": "تم تسجيل الدخول بنجاح",
+            "token": token
+        })
+    else:
+        return jsonify({"status": "error", "message": "كلمة المرور غير صحيحة"}), 401
         
 
