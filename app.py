@@ -6,7 +6,7 @@ import hashlib
 app = Flask(__name__)
 
 # إعدادات الـ JWT (سِر تشفير التوكن)
-app.config["JWT_SECRET_KEY"] = "super-secret-key-change-this"  # يمكنك تغييرها لاحقاً
+app.config["JWT_SECRET_KEY"] = "super-secret-key-change-this"
 jwt = JWTManager(app)
 
 # دالة لإنشاء الاتصال بقاعدة البيانات
@@ -90,7 +90,7 @@ def login():
 @app.route('/api/inventory', methods=['POST'])
 @jwt_required()
 def add_product():
-    current_user = get_jwt_identity() # معرفة المستخدم الحالي من الـ Token
+    current_user = get_jwt_identity()
     data = request.get_json()
     
     if not data or 'name' not in data or 'quantity' not in data or 'price' not in data:
@@ -108,13 +108,12 @@ def add_product():
 
     return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح بواسطة " + current_user}), 201
 
-# عرض المنتجات الخاصة بالمستخدم أو كل المنتجات (محمي بالـ Token)
+# عرض المنتجات الخاصة بالمستخدم الحالي (محمي بالـ Token)
 @app.route('/api/inventory', methods=['GET'])
 @jwt_required()
 def get_products():
     current_user = get_jwt_identity()
     conn = get_db_connection()
-    # جلب منتجات المستخدم الحالي فقط
     products = conn.execute('SELECT * FROM inventory WHERE username = ?', (current_user,)).fetchall()
     conn.close()
 
@@ -129,6 +128,52 @@ def get_products():
 
     return jsonify({"status": "success", "products": product_list}), 200
 
+# تعديل منتج بناءً على الـ ID (محمي بالـ Token)
+@app.route('/api/inventory/<int:id>', methods=['PUT'])
+@jwt_required()
+def update_product(id):
+    current_user = get_jwt_identity()
+    data = request.get_json()
+    
+    if not data or 'name' not in data or 'quantity' not in data or 'price' not in data:
+        return jsonify({"status": "error", "message": "بيانات التعديل غير مكتملة"}), 400
+
+    name = data['name']
+    quantity = data['quantity']
+    price = data['price']
+
+    conn = get_db_connection()
+    # التأكد إن المنتج يخص المستخدم الحالي ومش مستخدم تاني
+    product = conn.execute('SELECT * FROM inventory WHERE id = ? AND username = ?', (id, current_user)).fetchone()
+    if product is None:
+        conn.close()
+        return jsonify({"status": "error", "message": "المنتج غير موجود أو ليس لديك صلاحية لتعديله"}), 404
+
+    conn.execute('UPDATE inventory SET name = ?, quantity = ?, price = ? WHERE id = ? AND username = ?',
+                 (name, quantity, price, id, current_user))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "success", "message": "تم تعديل المنتج بنجاح"}), 200
+
+# حذف منتج بناءً على الـ ID (محمي بالـ Token)
+@app.route('/api/inventory/<int:id>', methods=['DELETE'])
+@jwt_required()
+def delete_product(id):
+    current_user = get_jwt_identity()
+    conn = get_db_connection()
+    
+    # التأكد إن المنتج يخص المستخدم الحالي
+    product = conn.execute('SELECT * FROM inventory WHERE id = ? AND username = ?', (id, current_user)).fetchone()
+    if product is None:
+        conn.close()
+        return jsonify({"status": "error", "message": "المنتج غير موجود أو ليس لديك صلاحية لحذفه"}), 404
+
+    conn.execute('DELETE FROM inventory WHERE id = ? AND username = ?', (id, current_user))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "success", "message": "تم حذف المنتج بنجاح"}), 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-    
