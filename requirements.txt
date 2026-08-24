@@ -1,5 +1,7 @@
 Flask
 flask-cors
 flask-jwt-extended
+gunicorn
+
 
 
