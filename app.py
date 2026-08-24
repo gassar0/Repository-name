@@ -21,14 +21,34 @@ def generate_jwt(user_id: int, username: str) -> str:
     b64_payload = base64.urlsafe_b64encode(payload).decode('utf-8').rstrip('=')
     signature = hashlib.sha256(f"{b64_header}.{b64_payload}".encode('utf-8')).hexdigest()
     return f"{b64_header}.{b64_payload}.{signature}"
-
 # إعداد قاعدة البيانات
 conn = sqlite3.connect('database.db')
 cursor = conn.cursor()
-cursor.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT)')
-cursor.execute('CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY, name TEXT, price REAL, stock INTEGER)')
+
+# حذف الجدول القديم لضمان إنشاء الأعمدة الجديدة صح
+cursor.execute('DROP TABLE IF EXISTS users;')
+
+# إنشاء جدول المستخدمين بالأعمدة الكاملة (username و password)
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        password TEXT
+    )
+''')
+
+# إنشاء جدول المخزن
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_name TEXT,
+        quantity INTEGER
+    )
+''')
+
 conn.commit()
 conn.close()
+
 
 @app.route('/', methods=['GET'])
 def home():
