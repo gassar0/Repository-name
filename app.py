@@ -1,179 +1,154 @@
-from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import sqlite3
-import hashlib
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    get_jwt_identity,
+    jwt_required,
+)
 
 app = Flask(__name__)
+CORS(app)  # تفعيل الـ CORS لحل مشكلة الاتصال من المتصفح نهائياً
 
-# إعدادات الـ JWT (سِر تشفير التوكن)
+# إعدادات الأمان والتشفير (JWT)
 app.config["JWT_SECRET_KEY"] = "super-secret-key-change-this"
 jwt = JWTManager(app)
 
-# دالة لإنشاء الاتصال بقاعدة البيانات
+
+# دالة الاتصال بقاعدة البيانات
 def get_db_connection():
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+  conn = sqlite3.connect("database.db")
+  conn.row_factory = sqlite3.Row
+  return conn
 
-# تهيئة قاعدة البيانات والجداول
+
+# إنشـاء الجداول والمستخدم الافتراضي تلقائياً
 def init_db():
-    conn = get_db_connection()
-    # جدول المستخدمين
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    ''')
-    # جدول المخزن (مربوط باسم المستخدم)
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS inventory (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
-            username TEXT NOT NULL
-        )
-    ''')
-    conn.commit()
-    conn.close()
+  conn = get_db_connection()
+  # جدول المستخدمين
+  conn.execute(
+      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+      " username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)"
+  )
+  # جدول المخزن والمنتجات
+  conn.execute(
+      "CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY"
+      " AUTOINCREMENT, name TEXT NOT NULL, quantity INTEGER NOT NULL, price"
+      " REAL NOT NULL)"
+  )
 
-# تشغيل إنشاء الجداول أول ما السيرفر يقوم
+  # إضافة حسابك الافتراضي تلقائياً عشان يشتغل من أول مرة
+  user = conn.execute(
+      "SELECT * FROM users WHERE username = ?", ("mmmmm_mmmmm319@yahoo.com",)
+  ).fetchone()
+  if not user:
+    conn.execute(
+        "INSERT INTO users (username, password) VALUES (?, ?)",
+        ("mmmmm_mmmmm319@yahoo.com", "Zx1231992"),
+    )
+
+  conn.commit()
+  conn.close()
+
+
+# تشغيل تهيئة القاعدة أول ما السيرفر يقوم
 init_db()
 
-# ==================== مسارات المصادقة (Auth) ====================
 
-@app.route('/api/auth/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    if not data or not data.get('username') or not data.get('password'):
-        return jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}), 400
-
-    username = data['username']
-    password = hashlib.sha256(data['password'].encode()).hexdigest()
-
-    conn = get_db_connection()
-    try:
-        conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        conn.close()
-        return jsonify({"status": "error", "message": "اسم المستخدم مستخدم من قبل"}), 400
-    
-    conn.close()
-    return jsonify({"status": "success", "message": "تم تسجيل المستخدم بنجاح"}), 200
-
-@app.route('/api/auth/login', methods=['POST'])
+# 1. مسار تسجيل الدخول وإعطاء التوكن
+@app.route("/api/auth/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    if not data or not data.get('username') or not data.get('password'):
-        return jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}), 400
+  data = request.get_json()
+  if not data or not data.get("username") or not data.get("password"):
+    return (
+        jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}),
+        400,
+    )
 
-    username = data['username']
-    password = hashlib.sha256(data['password'].encode()).hexdigest()
+  username = data["username"]
+  password = data["password"]
 
-    conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password)).fetchone()
-    conn.close()
+  conn = get_db_connection()
+  user = conn.execute(
+      "SELECT * FROM users WHERE username = ? AND password = ?",
+      (username, password),
+  ).fetchone()
+  conn.close()
 
-    if user is None:
-        return jsonify({"status": "error", "message": "اسم المستخدم أو كلمة المرور غير صحيحة"}), 401
+  if user:
+    token = create_access_token(identity=username)
+    return jsonify({"status": "success", "token": token}), 200
+  else:
+    return (
+        jsonify({"status": "error", "message": "بيانات الدخول غير صحيحة"}),
+        401,
+    )
 
-    # إنشاء الـ Token وإرجاعه للمستخدم
-    access_token = create_access_token(identity=username)
-    return jsonify({"status": "success", "message": "تم تسجيل الدخول بنجاح", "token": access_token}), 200
 
-# ==================== مسارات المخزن (Inventory - المحمية) ====================
-
-# إضافة منتج (محمي بالـ Token)
-@app.route('/api/inventory', methods=['POST'])
+# 2. مسار جلب وعرض المنتجات (GET) أو إضافة منتج جديد (POST)
+@app.route("/api/inventory", methods=["GET", "POST"])
 @jwt_required()
-def add_product():
-    current_user = get_jwt_identity()
+def inventory():
+  conn = get_db_connection()
+
+  if request.method == "GET":
+    products = conn.execute("SELECT * FROM inventory").fetchall()
+    conn.close()
+    return (
+        jsonify({
+            "status": "success",
+            "products": [dict(p) for p in products],
+        }),
+        200,
+    )
+
+  if request.method == "POST":
     data = request.get_json()
-    
-    if not data or 'name' not in data or 'quantity' not in data or 'price' not in data:
-        return jsonify({"status": "error", "message": "بيانات المنتج غير مكتملة"}), 400
+    if (
+        not data
+        or "name" not in data
+        or "quantity" not in data
+        or "price" not in data
+    ):
+      conn.close()
+      return (
+          jsonify({"status": "error", "message": "بيانات المنتج غير مكتملة"}),
+          400,
+      )
 
-    name = data['name']
-    quantity = data['quantity']
-    price = data['price']
+    name = data["name"]
+    quantity = data["quantity"]
+    price = data["price"]
 
-    conn = get_db_connection()
-    conn.execute('INSERT INTO inventory (name, quantity, price, username) VALUES (?, ?, ?, ?)',
-                 (name, quantity, price, current_user))
+    conn.execute(
+        "INSERT INTO inventory (name, quantity, price) VALUES (?, ?, ?)",
+        (name, quantity, price),
+    )
     conn.commit()
     conn.close()
+    return (
+        jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح"}),
+        201,
+    )
 
-    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح بواسطة " + current_user}), 201
 
-# عرض المنتجات الخاصة بالمستخدم الحالي (محمي بالـ Token)
-@app.route('/api/inventory', methods=['GET'])
-@jwt_required()
-def get_products():
-    current_user = get_jwt_identity()
-    conn = get_db_connection()
-    products = conn.execute('SELECT * FROM inventory WHERE username = ?', (current_user,)).fetchall()
-    conn.close()
-
-    product_list = []
-    for p in products:
-        product_list.append({
-            "id": p["id"],
-            "name": p["name"],
-            "quantity": p["quantity"],
-            "price": p["price"]
-        })
-
-    return jsonify({"status": "success", "products": product_list}), 200
-
-# تعديل منتج بناءً على الـ ID (محمي بالـ Token)
-@app.route('/api/inventory/<int:id>', methods=['PUT'])
-@jwt_required()
-def update_product(id):
-    current_user = get_jwt_identity()
-    data = request.get_json()
-    
-    if not data or 'name' not in data or 'quantity' not in data or 'price' not in data:
-        return jsonify({"status": "error", "message": "بيانات التعديل غير مكتملة"}), 400
-
-    name = data['name']
-    quantity = data['quantity']
-    price = data['price']
-
-    conn = get_db_connection()
-    # التأكد إن المنتج يخص المستخدم الحالي ومش مستخدم تاني
-    product = conn.execute('SELECT * FROM inventory WHERE id = ? AND username = ?', (id, current_user)).fetchone()
-    if product is None:
-        conn.close()
-        return jsonify({"status": "error", "message": "المنتج غير موجود أو ليس لديك صلاحية لتعديله"}), 404
-
-    conn.execute('UPDATE inventory SET name = ?, quantity = ?, price = ? WHERE id = ? AND username = ?',
-                 (name, quantity, price, id, current_user))
-    conn.commit()
-    conn.close()
-
-    return jsonify({"status": "success", "message": "تم تعديل المنتج بنجاح"}), 200
-
-# حذف منتج بناءً على الـ ID (محمي بالـ Token)
-@app.route('/api/inventory/<int:id>', methods=['DELETE'])
+# 3. مسار حذف منتج (DELETE)
+@app.route("/api/inventory/<int:id>", methods=["DELETE"])
 @jwt_required()
 def delete_product(id):
-    current_user = get_jwt_identity()
-    conn = get_db_connection()
-    
-    # التأكد إن المنتج يخص المستخدم الحالي
-    product = conn.execute('SELECT * FROM inventory WHERE id = ? AND username = ?', (id, current_user)).fetchone()
-    if product is None:
-        conn.close()
-        return jsonify({"status": "error", "message": "المنتج غير موجود أو ليس لديك صلاحية لحذفه"}), 404
-
-    conn.execute('DELETE FROM inventory WHERE id = ? AND username = ?', (id, current_user))
-    conn.commit()
+  conn = get_db_connection()
+  product = conn.execute("SELECT * FROM inventory WHERE id = ?", (id,)).fetchone()
+  if not product:
     conn.close()
+    return jsonify({"status": "error", "message": "المنتج غير موجود"}), 404
 
-    return jsonify({"status": "success", "message": "تم حذف المنتج بنجاح"}), 200
+  conn.execute("DELETE FROM inventory WHERE id = ?", (id,))
+  conn.commit()
+  conn.close()
+  return jsonify({"status": "success", "message": "تم حذف المنتج بنجاح"}), 200
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+
+if __name__ == "__main__":
+  app.run(host="0.0.0.0", port=5000)
+    
