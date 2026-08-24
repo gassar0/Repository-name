@@ -38,7 +38,7 @@ def init_db():
       " REAL NOT NULL)"
   )
 
-  # إضافة حسابك الافتراضي تلقائياً عشان يشتغل من أول مرة
+  # إضافة حسابك الافتراضي تلقائياً
   user = conn.execute(
       "SELECT * FROM users WHERE username = ?", ("mmmmm_mmmmm319@yahoo.com",)
   ).fetchone()
@@ -151,4 +151,5 @@ def delete_product(id):
 
 if __name__ == "__main__":
   app.run(host="0.0.0.0", port=5000)
+      
     
