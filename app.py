@@ -1,154 +1,134 @@
-import os
+from flask import Flask, request, jsonify
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import sqlite3
 import hashlib
-import hmac
-import time
-import base64
-import json
-from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager
 
 app = Flask(__name__)
-app.config["JWT_SECRET_KEY"] = "super-secret-jwt-key"
+
+# إعدادات الـ JWT (سِر تشفير التوكن)
+app.config["JWT_SECRET_KEY"] = "super-secret-key-change-this"  # يمكنك تغييرها لاحقاً
 jwt = JWTManager(app)
 
-# إعداد وتجهيز قواعد البيانات والجداول
-conn = sqlite3.connect('database.db')
-cursor = conn.cursor()
+# دالة لإنشاء الاتصال بقاعدة البيانات
+def get_db_connection():
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# جدول المستخدمين
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT,
-        password TEXT
-    )
-''')
+# تهيئة قاعدة البيانات والجداول
+def init_db():
+    conn = get_db_connection()
+    # جدول المستخدمين
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+    # جدول المخزن (مربوط باسم المستخدم)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS inventory (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            price REAL NOT NULL,
+            username TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
-# جدول المخزن
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS inventory (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        quantity INTEGER NOT NULL,
-        price REAL NOT NULL,
-        user_id INTEGER
-    )
-''')
-conn.commit()
-conn.close()
+# تشغيل إنشاء الجداول أول ما السيرفر يقوم
+init_db()
 
-def hash_password(password: str) -> str:
-    return hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), b'salt', 100000).hex()
-
-def generate_jwt(user_id: int, username: str) -> str:
-    header = json.dumps({"alg": "HS256", "typ": "JWT"})
-    payload = json.dumps({"sub": user_id, "username": username, "exp": int(time.time()) + 3600})
-    b64_header = base64.urlsafe_b64encode(header.encode()).decode().rstrip("=")
-    b64_payload = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
-    signature = hmac.new(app.config["JWT_SECRET_KEY"].encode(), f"{b64_header}.{b64_payload}".encode(), hashlib.sha256).digest()
-    b64_signature = base64.urlsafe_b64encode(signature).decode().rstrip("=")
-    return f"{b64_header}.{b64_payload}.{b64_signature}"
-
-@app.route('/', methods=['GET'])
-def home():
-    return jsonify({"status": "online", "message": "Server is running"})
+# ==================== مسارات المصادقة (Auth) ====================
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
-    data = request.get_json() or {}
+    data = request.get_json()
+    if not data or not data.get('username') or not data.get('password'):
+        return jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}), 400
+
+    username = data['username']
+    password = hashlib.sha256(data['password'].encode()).hexdigest()
+
+    conn = get_db_connection()
     try:
-        username = data.get('username')
-        password = data.get('password')
-
-        if not username or not password:
-            return jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}), 400
-
-        hashed_pw = hash_password(password)
-
-        conn = sqlite3.connect('database.db')
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
+        conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
         conn.commit()
+    except sqlite3.IntegrityError:
         conn.close()
-
-        return jsonify({"status": "success", "message": "تم تسجيل المستخدم بنجاح"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
+        return jsonify({"status": "error", "message": "اسم المستخدم مستخدم من قبل"}), 400
+    
+    conn.close()
+    return jsonify({"status": "success", "message": "تم تسجيل المستخدم بنجاح"}), 200
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    data = request.get_json() or {}
-    username = data.get('username')
-    password = data.get('password')
-
-    if not username or not password:
+    data = request.get_json()
+    if not data or not data.get('username') or not data.get('password'):
         return jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}), 400
 
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
+    username = data['username']
+    password = hashlib.sha256(data['password'].encode()).hexdigest()
+
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password)).fetchone()
     conn.close()
 
-    if not user:
-        return jsonify({"status": "error", "message": "اسم المستخدم غير مسجل"}), 401
+    if user is None:
+        return jsonify({"status": "error", "message": "اسم المستخدم أو كلمة المرور غير صحيحة"}), 401
 
-    stored_password_hash = user[2]
-    input_password_hash = hash_password(password)
+    # إنشاء الـ Token وإرجاعه للمستخدم
+    access_token = create_access_token(identity=username)
+    return jsonify({"status": "success", "message": "تم تسجيل الدخول بنجاح", "token": access_token}), 200
 
-    if hmac.compare_digest(stored_password_hash, input_password_hash):
-        token = generate_jwt(user[0], user[1])
-        return jsonify({"status": "success", "message": "تم تسجيل الدخول بنجاح", "token": token}), 200
-    else:
-        return jsonify({"status": "error", "message": "كلمة المرور غير صحيحة"}), 401
+# ==================== مسارات المخزن (Inventory - المحمية) ====================
 
-# مسارات إدارة المخزن (Inventory)
+# إضافة منتج (محمي بالـ Token)
 @app.route('/api/inventory', methods=['POST'])
+@jwt_required()
 def add_product():
-    data = request.get_json() or {}
-    name = data.get('name')
-    quantity = data.get('quantity')
-    price = data.get('price')
+    current_user = get_jwt_identity() # معرفة المستخدم الحالي من الـ Token
+    data = request.get_json()
     
-    if not name or quantity is None or price is None:
-        return jsonify({"status": "error", "message": "جميع الحقول مطلوبة"}), 400
-        
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO inventory (name, quantity, price) VALUES (?, ?, ?)', (name, quantity, price))
+    if not data or 'name' not in data or 'quantity' not in data or 'price' not in data:
+        return jsonify({"status": "error", "message": "بيانات المنتج غير مكتملة"}), 400
+
+    name = data['name']
+    quantity = data['quantity']
+    price = data['price']
+
+    conn = get_db_connection()
+    conn.execute('INSERT INTO inventory (name, quantity, price, username) VALUES (?, ?, ?, ?)',
+                 (name, quantity, price, current_user))
     conn.commit()
     conn.close()
-    
-    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح"}), 200
 
+    return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح بواسطة " + current_user}), 201
+
+# عرض المنتجات الخاصة بالمستخدم أو كل المنتجات (محمي بالـ Token)
 @app.route('/api/inventory', methods=['GET'])
-def get_inventory():
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, name, quantity, price FROM inventory')
-    rows = cursor.fetchall()
+@jwt_required()
+def get_products():
+    current_user = get_jwt_identity()
+    conn = get_db_connection()
+    # جلب منتجات المستخدم الحالي فقط
+    products = conn.execute('SELECT * FROM inventory WHERE username = ?', (current_user,)).fetchall()
     conn.close()
-    
-    products = []
-    for row in rows:
-        products.append({
-            "id": row[0],
-            "name": row[1],
-            "quantity": row[2],
-            "price": row[3]
-        })
-        
-    return jsonify({"status": "success", "products": products}), 200
 
-@app.route('/api/inventory/<int:product_id>', methods=['DELETE'])
-def delete_product(product_id):
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM inventory WHERE id = ?', (product_id,))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({"status": "success", "message": "تم حذف المنتج بنجاح"}), 200
-    
+    product_list = []
+    for p in products:
+        product_list.append({
+            "id": p["id"],
+            "name": p["name"],
+            "quantity": p["quantity"],
+            "price": p["price"]
+        })
+
+    return jsonify({"status": "success", "products": product_list}), 200
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
     
