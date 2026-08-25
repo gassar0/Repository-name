@@ -50,6 +50,7 @@ def get_products():
             "vendor": row[4]
         })
     return jsonify(products)
+
 @app.route('/api/users', methods=['GET'])
 def get_users():
     conn = sqlite3.connect("store.db")
@@ -64,6 +65,7 @@ def get_users():
             "email": row[1]
         })
     return jsonify(users)
+
 @app.route('/api/products', methods=['POST'])
 def add_product():
     try:
@@ -84,13 +86,10 @@ def add_product():
         return jsonify({"message": "تم إضافة المنتج بنجاح"})
     except Exception as e:
         return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
-        
-
-
 
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     email = data.get('email')
     password = data.get('password')
     if email == "mmmmm_mmmmm319@yahoo.com":
@@ -116,6 +115,7 @@ def export_excel():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
  
   
