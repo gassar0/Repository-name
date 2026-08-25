@@ -13,218 +13,178 @@
             padding: 20px;
         }
         .container {
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
         }
-        header {
+        h1, h2 {
             text-align: center;
-            margin-bottom: 30px;
-        }
-        header h1 {
-            color: #34d399;
-            margin-bottom: 5px;
-        }
-        header p {
-            color: #94a3b8;
-            font-size: 14px;
+            color: #38bdf8;
         }
         .card {
             background-color: #1e293b;
-            border-radius: 12px;
             padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
         }
-        h2 {
-            font-size: 18px;
-            color: #38bdf8;
-            margin-bottom: 15px;
-        }
-        input {
+        input, button {
             width: 100%;
             padding: 12px;
-            margin-bottom: 12px;
-            background-color: #0f172a;
-            border: 1px solid #334155;
+            margin: 8px 0;
             border-radius: 8px;
+            border: 1px solid #475569;
+            background-color: #0f172a;
             color: #fff;
             box-sizing: border-box;
         }
         button {
-            width: 100%;
-            padding: 12px;
-            background-color: #3b82f6;
-            color: white;
+            background-color: #2563eb;
             border: none;
-            border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
             transition: background 0.3s;
         }
         button:hover {
-            background-color: #2563eb;
+            background-color: #1d4ed8;
         }
         .product-item {
-            background-color: #0f172a;
+            background-color: #334155;
             padding: 15px;
+            margin-top: 10px;
             border-radius: 8px;
-            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border: 1px solid #334155;
         }
-        .product-info h3 {
-            margin: 0 0 5px 0;
-            color: #f1f5f9;
-        }
-        .product-info p {
-            margin: 0;
-            color: #94a3b8;
-            font-size: 13px;
-        }
-        .product-price {
-            color: #34d399;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        .admin-section {
-            border: 1px dashed #38bdf8;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
+        .error { color: #f87171; text-align: center; }
+        .success { color: #4ade80; text-align: center; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🛍️ متجر المخزن الذكي</h1>
-            <p>واجهة تفاعلية لعرض المنتجات والأسعار للعامة</p>
-        </header>
 
-        <!-- قسم تسجيل دخول المدير (مخفي للعامة، يظهر ليك) -->
-        <div class="card admin-section">
-            <h2>🔐 لوحة تحكم المدير (لإضافة منتجات)</h2>
-            <div id="login-form">
-                <input type="email" id="email" placeholder="البريد الإلكتروني للمدير" value="mmmmm_mmmmm319@yahoo.com">
-                <input type="password" id="password" placeholder="كلمة المرور" value="Zx1231992">
-                <button onclick="loginAdmin()">تسجيل دخول المدير</button>
-            </div>
-            <div id="add-product-form" style="display: none; margin-top: 15px;">
-                <p style="color: #34d399; font-size: 14px; margin-bottom: 10px;">✅ تم تسجيل الدخول بنجاح كمدير</p>
-                <input type="text" id="p-name" placeholder="اسم المنتج (مثال: لاب توب ديل)">
-                <input type="number" id="p-qty" placeholder="الكمية المتاحة">
-                <input type="number" id="p-price" placeholder="السعر">
-                <button onclick="addProduct()" style="background-color: #10b981;">إضافة المنتج للمتجر</button>
-            </div>
+<div class="container">
+    <h1>🛒 متجر المخزن الذكي</h1>
+    <p style="text-align: center; color: #94a3b8;">واجهة تفاعلية لعرض المنتجات والأسعار للعامة</p>
+
+    <!-- لوحة تحكم المدير -->
+    <div class="card">
+        <h2>🔐 لوحة تحكم المدير (لإضافة منتجات)</h2>
+        <div id="login-section">
+            <input type="email" id="admin-email" placeholder="البريد الإلكتروني للمدير">
+            <input type="password" id="admin-password" placeholder="كلمة المرور">
+            <button onclick="loginAdmin()">تسجيل دخول المدير</button>
+            <p id="login-msg"></p>
         </div>
 
-        <!-- قائمة المنتجات (متاحة للجميع فوراً) -->
-        <div class="card">
-            <h2>📦 قائمة منتجات المتجر العامة</h2>
-            <button onclick="loadProducts()" style="background-color: #475569; margin-bottom: 15px;">🔄 تحديث القائمة</button>
-            <div id="products-list">
-                <p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>
-            </div>
+        <div id="admin-panel" style="display: none;">
+            <p class="success">تم تسجيل الدخول بنجاح كمدير ✅</p>
+            <h3>إضافة منتج جديد</h3>
+            <input type="text" id="prod-name" placeholder="اسم المنتج">
+            <input type="number" id="prod-qty" placeholder="الكمية">
+            <input type="number" step="0.01" id="prod-price" placeholder="السعر">
+            <button onclick="addProduct()">إضافة للمتجر فوراً</button>
+            <p id="add-msg"></p>
         </div>
     </div>
 
-    <script>
-        // جلب المنتجات تلقائياً أول ما الصفحة تفتح
-        async function loadProducts() {
-            try {
-                const response = await fetch('/api/inventory');
-                const data = await response.json();
-                const listDiv = document.getElementById('products-list');
-                
-                if (data.products && data.products.length > 0) {
-                    let html = '';
-                    data.products.forEach(p => {
-                        html += `
-                            <div class="product-item">
-                                <div class="product-info">
-                                    <h3>${p.name}</h3>
-                                    <p>الكمية المتاحة: ${p.quantity}</p>
-                                </div>
-                                <div class="product-price">${p.price} دولار</div>
-                            </div>
-                        `;
-                    });
-                    listDiv.innerHTML = html;
-                } else {
-                    listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">لا توجد منتجات مضافة حالياً في المتجر.</p>';
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('products-list').innerHTML = '<p style="text-align: center; color: #ef4444;">حدث خطأ أثناء تحميل المنتجات.</p>';
+    <!-- قائمة المنتجات العامة -->
+    <div class="card">
+        <h2>📦 قائمة منتجات المتجر العامة</h2>
+        <button onclick="loadProducts()" style="background-color: #047857;">🔄 تحديث القائمة</button>
+        <div id="products-list" style="margin-top: 15px;">
+            <p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // جلب المنتجات تلقائياً عند فتح الصفحة
+    window.onload = function() {
+        loadProducts();
+    };
+
+    function loginAdmin() {
+        const email = document.getElementById('admin-email').value;
+        const password = document.getElementById('admin-password').value;
+
+        fetch('/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('admin-panel').style.display = 'block';
+            } else {
+                document.getElementById('login-msg').innerText = data.message;
+                document.getElementById('login-msg').className = 'error';
             }
-        }
+        })
+        .catch(err => {
+            document.getElementById('login-msg').innerText = 'حدث خطأ في الاتصال بالسيرفر';
+            document.getElementById('login-msg').className = 'error';
+        });
+    }
 
-        // تسجيل الدخول للمدير
-        async function loginAdmin() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+    function addProduct() {
+        const name = document.getElementById('prod-name').value;
+        const quantity = document.getElementById('prod-qty').value;
+        const price = document.getElementById('prod-price').value;
 
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: email, password: password })
-                });
-                const data = await response.json();
+        fetch('/add-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, quantity, price })
+        })
+        .then(res => res.json())
+        .then(data => {
+            const msg = document.getElementById('add-msg');
+            msg.innerText = data.message;
+            msg.className = 'success';
+            loadProducts(); // تحديث القائمة فوراً
+        })
+        .catch(err => {
+            const msg = document.getElementById('add-msg');
+            msg.innerText = 'حدث خطأ أثناء الإضافة';
+            msg.className = 'error';
+        });
+    }
 
-                if (response.ok) {
-                    localStorage.setItem('admin_token', data.token);
-                    document.getElementById('login-form').style.display = 'none';
-                    document.getElementById('add-product-form').style.display = 'block';
-                    alert('تم تسجيل الدخول بنجاح!');
-                } else {
-                    alert('فشل تسجيل الدخول: تأكد من الإيميل وباسورد المدير');
-                }
-            } catch (error) {
-                alert('حدث خطأ في الاتصال بالسيرفر');
-            }
-        }
+    function loadProducts() {
+        const listDiv = document.getElementById('products-list');
+        listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">جاري التحديث...</p>';
 
-        // إضافة منتج جديد (محمي بالتوكن)
-        async function addProduct() {
-            const name = document.getElementById('p-name').value;
-            const quantity = document.getElementById('p-qty').value;
-            const price = document.getElementById('p-price').value;
-            const token = localStorage.getItem('admin_token');
-
-            if (!name || !quantity || !price) {
-                alert('الرجاء إدخال جميع بيانات المنتج');
+        fetch('/api/products')
+        .then(res => res.json())
+        .then(products => {
+            listDiv.innerHTML = '';
+            if (products.length === 0) {
+                listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">لا توجد منتجات مضافة حتى الآن.</p>';
                 return;
             }
+            products.forEach(p => {
+                listDiv.innerHTML += `
+                    <div class="product-item">
+                        <div>
+                            <strong>${p.name}</strong><br>
+                            <small style="color: #94a3b8;">البائع: ${p.vendor}</small>
+                        </div>
+                        <div>
+                            <span>الكمية: ${p.quantity}</span> | 
+                            <span style="color: #38bdf8; font-weight: bold;">${p.price} ر.س</span>
+                        </div>
+                    </div>
+                `;
+            });
+        })
+        .catch(err => {
+            listDiv.innerHTML = '<p class="error">حدث خطأ أثناء تحميل المنتجات.</p>';
+        });
+    }
+</script>
 
-            try {
-                const response = await fetch('/api/inventory', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ name, quantity: parseInt(quantity), price: parseFloat(price) })
-                });
-
-                if (response.ok) {
-                    alert('تم إضافة المنتج بنجاح للمتجر!');
-                    document.getElementById('p-name').value = '';
-                    document.getElementById('p-qty').value = '';
-                    document.getElementById('p-price').value = '';
-                    loadProducts();
-                } else {
-                    alert('جلسة الدخول انتهت، يرجى تسجيل الدخول مرة أخرى');
-                }
-            } catch (error) {
-                alert('حدث خطأ أثناء الإضافة');
-            }
-        }
-
-        // أول ما الصفحة تفتح هات المنتجات فوراً
-        window.onload = loadProducts;
-    </script>
 </body>
 </html>
+
