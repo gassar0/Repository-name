@@ -39,27 +39,10 @@ def init_db():
 init_db()
 
 
-# الصفحة الرئيسية تعرض المنتجات المعتمدة مباشرة
+# الصفحة الرئيسية تعرض الواجهة مباشرة بأمان تام
 @app.route("/")
 def index():
-  conn = sqlite3.connect("store.db")
-  cursor = conn.cursor()
-  cursor.execute(
-      "SELECT name, quantity, price, vendor_name FROM products WHERE approved ="
-      " 1"
-  )
-  rows = cursor.fetchall()
-  conn.close()
-
-  products = []
-  for row in rows:
-    products.append({
-        "name": row[0],
-        "quantity": row[1],
-        "price": row[2],
-        "vendor": row[3],
-    })
-  return render_template("store.html", products=products)
+  return render_template("store.html")
 
 
 # تسجيل دخول المدير
@@ -120,7 +103,7 @@ def vendor_add_product():
   })
 
 
-# جلب المنتجات كـ API
+# جلب المنتجات المعتمدة للعامة
 @app.route("/api/products", methods=["GET"])
 def get_public_products():
   conn = sqlite3.connect("store.db")
@@ -144,6 +127,7 @@ def get_public_products():
 
 
 if __name__ == "__main__":
-  app.run(host="0.0.0.0", port=5000)
+  app.run(host="0.0.0.0", port5000)
+  
   
   
