@@ -7,30 +7,30 @@ app = Flask(__name__)
 def init_db():
   conn = sqlite3.connect("store.db")
   cursor = conn.cursor()
-  # إنشاء الجدول الأساسي لو مش موجود
+
+  # إنشاء الجدول بالهيكل الكامل لو مش موجود أصلاً
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             quantity INTEGER NOT NULL,
-            price REAL NOT NULL
+            price REAL NOT NULL,
+            vendor_name TEXT DEFAULT 'الإدارة',
+            approved INTEGER DEFAULT 1
         )
     """)
 
-  # إضافة الأعمدة الجديدة بأمان لو الجدول القديم كان موجود من قبل
-  try:
+  # التأكد بذكاء من وجود الأعمدة الجديدة وإضافتها لو ناقصة
+  cursor.execute("PRAGMA table_info(products)")
+  columns = [info[1] for info in cursor.fetchall()]
+
+  if "vendor_name" not in columns:
     cursor.execute(
         "ALTER TABLE products ADD COLUMN vendor_name TEXT DEFAULT 'الإدارة'"
     )
-  except:
-    pass
 
-  try:
-    cursor.execute(
-        "ALTER TABLE products ADD COLUMN approved INTEGER DEFAULT 1"
-    )
-  except:
-    pass
+  if "approved" not in columns:
+    cursor.execute("ALTER TABLE products ADD COLUMN approved INTEGER DEFAULT 1")
 
   conn.commit()
   conn.close()
@@ -128,4 +128,3 @@ def get_public_products():
 if __name__ == "__main__":
   app.run(host="0.0.0.0", port=5000)
   
-    
