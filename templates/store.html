@@ -65,7 +65,7 @@
             <div id="login-msg"></div>
         </div>
 
-        <!-- لوحة إضافة المنتجات (مخفية وتظهر بعد نجاح تسجيل الدخول) -->
+        <!-- لوحة إضافة المنتجات -->
         <div class="card" id="admin-panel" style="display: none;">
             <h3>➕ إضافة منتج جديد</h3>
             <input type="text" id="prod-name" placeholder="اسم المنتج">
@@ -75,7 +75,7 @@
             <div id="add-msg"></div>
         </div>
 
-        <!-- قائمة المنتجات العامة -->
+        <!-- قائمة المنتجات العامة (جدول إكسل) -->
         <div class="card">
             <h2>📦 قائمة منتجات المتجر العامة</h2>
             <button onclick="loadProducts()" style="background-color: #059669; margin-bottom: 15px;">🔄 تحديث القائمة</button>
@@ -83,6 +83,15 @@
             
             <div id="products-list">
                 <p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>
+            </div>
+        </div>
+
+        <!-- قائمة الناس / المستخدمين (جدول إكسل) -->
+        <div class="card" id="users-section">
+            <h2>👥 قائمة المستخدمين والناس</h2>
+            <button onclick="loadUsers()" style="background-color: #0284c7; margin-bottom: 15px;">🔄 تحديث قائمة الناس</button>
+            <div id="users-list">
+                <p style="text-align: center; color: #94a3b8;">اضغط على تحديث لعرض قائمة الناس...</p>
             </div>
         </div>
     </div>
@@ -96,9 +105,7 @@
         listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>';
         try {
             let res = await fetch('/api/products');
-            if (!res.ok) {
-                throw new Error('حالة السيرفر غير صحيحة: ' + res.status);
-            }
+            if (!res.ok) throw new Error('حالة السيرفر غير صحيحة: ' + res.status);
             let products = await res.json();
             allProductsCache = products;
             displayProducts(products);
@@ -110,26 +117,35 @@
     function displayProducts(products) {
         let listDiv = document.getElementById('products-list');
         if (!listDiv) return;
-        listDiv.innerHTML = '';
         if (!products || products.length === 0) {
-            listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">لا توجد منتجات مسجلة حالياً (قاعدة البيانات فارغة).</p>';
+            listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">لا توجد منتجات مسجلة حالياً.</p>';
             return;
         }
-        let html = '';
-        products.forEach(p => {
+        let html = `
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; background-color: #1e293b; color: #f8fafc; border-radius: 8px; overflow: hidden;">
+                    <thead>
+                        <tr style="background-color: #334155; color: #38bdf8; text-align: right;">
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">اسم المنتج</th>
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">البائع</th>
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">الكمية</th>
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">السعر (ر.س)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        products.forEach((p, index) => {
+            let rowBg = index % 2 === 0 ? '#1e293b' : '#1a2332';
             html += `
-                <div style="background-color: #334155; padding: 12px; margin-top: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="color: #38bdf8; font-size: 16px;">${p.name || 'بدون اسم'}</strong><br>
-                        <small style="color: #94a3b8;">البائع: ${p.vendor || 'غير محدد'}</small>
-                    </div>
-                    <div>
-                        <span>الكمية: ${p.quantity || 0}</span> | 
-                        <span style="color: #38bdf8; font-weight: bold;">${p.price || 0} ر.س</span>
-                    </div>
-                </div>
+                <tr style="background-color: ${rowBg}; border-bottom: 1px solid #334155;">
+                    <td style="padding: 12px; font-weight: bold; color: #38bdf8;">${p.name || 'بدون اسم'}</td>
+                    <td style="padding: 12px; color: #94a3b8;">${p.vendor || 'الإدارة'}</td>
+                    <td style="padding: 12px;">${p.quantity || 0}</td>
+                    <td style="padding: 12px; font-weight: bold; color: #4ade80;">${p.price || 0}</td>
+                </tr>
             `;
         });
+        html += `</tbody></table></div>`;
         listDiv.innerHTML = html;
     }
 
@@ -139,6 +155,55 @@
         let query = searchInput.value.toLowerCase();
         let filtered = allProductsCache.filter(p => p.name && p.name.toLowerCase().includes(query));
         displayProducts(filtered);
+    }
+
+    async function loadUsers() {
+        let listDiv = document.getElementById('users-list');
+        if (!listDiv) return;
+        listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">جاري تحميل بيانات الناس...</p>';
+        try {
+            let res = await fetch('/api/users');
+            if (!res.ok) throw new Error('فشل جلب المستخدمين: ' + res.status);
+            let users = await res.json();
+            displayUsers(users);
+        } catch (err) {
+            listDiv.innerHTML = '<p style="text-align: center; color: #ef4444;">فشل الاتصال: ' + err.message + '</p>';
+        }
+    }
+
+    function displayUsers(users) {
+        let listDiv = document.getElementById('users-list');
+        if (!listDiv) return;
+        if (!users || users.length === 0) {
+            listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">لا يوجد مستخدمون مسجلون حالياً.</p>';
+            return;
+        }
+        let html = `
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; background-color: #1e293b; color: #f8fafc; border-radius: 8px; overflow: hidden;">
+                    <thead>
+                        <tr style="background-color: #334155; color: #38bdf8; text-align: right;">
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">اسم الشخص</th>
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">البريد الإلكتروني</th>
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">الدور / الصلاحية</th>
+                            <th style="padding: 12px; border-bottom: 2px solid #475569;">الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        users.forEach((u, index) => {
+            let rowBg = index % 2 === 0 ? '#1e293b' : '#1a2332';
+            html += `
+                <tr style="background-color: ${rowBg}; border-bottom: 1px solid #334155;">
+                    <td style="padding: 12px; font-weight: bold; color: #38bdf8;">${u.name || 'بدون اسم'}</td>
+                    <td style="padding: 12px; color: #94a3b8;">${u.email || 'غير محدد'}</td>
+                    <td style="padding: 12px;">${u.role || 'عضو'}</td>
+                    <td style="padding: 12px; font-weight: bold; color: #4ade80;">${u.status || 'نشط'}</td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table></div>`;
+        listDiv.innerHTML = html;
     }
 
     function loginAdmin() {
@@ -158,9 +223,7 @@
             } catch (e) {
                 throw new Error('السيرفر لم يعود ببيانات صالحة');
             }
-            if (!res.ok) {
-                throw new Error(data.message || 'خطأ في بيانات الدخول');
-            }
+            if (!res.ok) throw new Error(data.message || 'خطأ في بيانات الدخول');
             return data;
         })
         .then(data => {
@@ -204,9 +267,8 @@
 
     window.onload = function() {
         loadProducts();
+        loadUsers();
     };
     </script>
 </body>
 </html>
-
-                    
