@@ -16,7 +16,7 @@
             max-width: 800px;
             margin: 0 auto;
         }
-        h1, h2 {
+        h1, h2, h3 {
             text-align: center;
             color: #38bdf8;
         }
@@ -24,172 +24,175 @@
             background-color: #1e293b;
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         input, button {
             width: 100%;
             padding: 12px;
-            margin: 8px 0;
+            margin-top: 10px;
             border-radius: 8px;
-            border: 1px solid #475569;
+            border: 1px solid #334155;
             background-color: #0f172a;
             color: #fff;
             box-sizing: border-box;
         }
         button {
             background-color: #2563eb;
+            color: white;
             border: none;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.3s;
         }
         button:hover {
             background-color: #1d4ed8;
         }
-        .product-item {
-            background-color: #334155;
-            padding: 15px;
-            margin-top: 10px;
-            border-radius: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .error { color: #f87171; text-align: center; }
-        .success { color: #4ade80; text-align: center; }
+        .success { color: #4ade80; text-align: center; margin-top: 10px; }
+        .error { color: #ef4444; text-align: center; margin-top: 10px; }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>متجر المخزن الذكي 🛒</h1>
+        <p style="text-align: center; color: #94a3b8;">واجهة تفاعلية لعرض المنتجات والأسعار للعامة</p>
 
-<div class="container">
-    <h1>🛒 متجر المخزن الذكي</h1>
-    <p style="text-align: center; color: #94a3b8;">واجهة تفاعلية لعرض المنتجات والأسعار للعامة</p>
-
-    <!-- لوحة تحكم المدير -->
-    <div class="card">
-        <h2>🔐 لوحة تحكم المدير (لإضافة منتجات)</h2>
-        <div id="login-section">
+        <!-- لوحة تسجيل دخول المدير -->
+        <div class="card" id="login-card">
+            <h2>🔐 لوحة تحكم المدير (لإضافة منتجات)</h2>
             <input type="email" id="admin-email" placeholder="البريد الإلكتروني للمدير">
             <input type="password" id="admin-password" placeholder="كلمة المرور">
             <button onclick="loginAdmin()">تسجيل دخول المدير</button>
-            <p id="login-msg"></p>
+            <div id="login-msg"></div>
         </div>
 
-        <div id="admin-panel" style="display: none;">
-            <p class="success">تم تسجيل الدخول بنجاح كمدير ✅</p>
-            <h3>إضافة منتج جديد</h3>
+        <!-- لوحة إضافة المنتجات (مخفية وتظهر بعد نجاح تسجيل الدخول) -->
+        <div class="card" id="admin-panel" style="display: none;">
+            <h3>➕ إضافة منتج جديد</h3>
             <input type="text" id="prod-name" placeholder="اسم المنتج">
-            <input type="number" id="prod-qty" placeholder="الكمية">
-            <input type="number" step="0.01" id="prod-price" placeholder="السعر">
-            <button onclick="addProduct()">إضافة للمتجر فوراً</button>
-            <p id="add-msg"></p>
-      <button onclick="exportReport()" style="background-color: #0284c7; margin-top: 10px; width: 100%; padding: 10px; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer;">📊 تحميل تقرير المخزون (Excel)</button>
+            <input type="number" id="prod-quantity" placeholder="الكمية">
+            <input type="number" step="0.01" id="prod-price" placeholder="السعر (ر.س)">
+            <button onclick="addProduct()">إضافة المنتج للسيرفر</button>
+            <div id="add-msg"></div>
         </div>
-    </div>
 
-    <!-- قائمة المنتجات العامة -->
-    <div class="card">
-        <h2>📦 قائمة منتجات المتجر العامة</h2>
-        <button onclick="loadProducts()" style="background-color: #047857;">🔄 تحديث القائمة</button>
-<input type="text" id="search-input" placeholder="🔍 ابحث عن أي منتج بالاسم..." onkeyup="filterProducts()" style="width: 100%; padding: 10px; margin-top: 10px; margin-bottom: 15px; background-color: #334155; border: 1px solid #475569; border-radius: 5px; color: white; font-size: 14px;">
-<div id="products-list" style="margin-top: 15px;">
-    <p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>
-</div>
-        
-        </div>
-    </div>
-</div>
-<script>
-let allProductsCache = [];
-
-async function loadProducts() {
-    let listDiv = document.getElementById('products-list');
-    if (!listDiv) return;
-    listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>';
-    try {
-        let res = await fetch('/api/products');
-        if (!res.ok) {
-            throw new Error('حالة السيرفر غير صحيحة: ' + res.status);
-        }
-        let products = await res.json();
-        allProductsCache = products;
-        displayProducts(products);
-    } catch (err) {
-        listDiv.innerHTML = '<p style="text-align: center; color: #ef4444;">فشل الاتصال: ' + err.message + '</p>';
-    }
-}
-
-function displayProducts(products) {
-    let listDiv = document.getElementById('products-list');
-    if (!listDiv) return;
-    listDiv.innerHTML = '';
-    if (!products || products.length === 0) {
-        listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">لا توجد منتجات مسجلة حالياً (قاعدة البيانات فارغة).</p>';
-        return;
-    }
-    let html = '';
-    products.forEach(p => {
-        html += `
-            <div style="background-color: #334155; padding: 12px; margin-top: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <strong style="color: #38bdf8; font-size: 16px;">${p.name || 'بدون اسم'}</strong><br>
-                    <small style="color: #94a3b8;">البائع: ${p.vendor || 'غير محدد'}</small>
-                </div>
-                <div>
-                    <span>الكمية: ${p.quantity || 0}</span> | 
-                    <span style="color: #38bdf8; font-weight: bold;">${p.price || 0} ر.س</span>
-                </div>
+        <!-- قائمة المنتجات العامة -->
+        <div class="card">
+            <h2>📦 قائمة منتجات المتجر العامة</h2>
+            <button onclick="loadProducts()" style="background-color: #059669; margin-bottom: 15px;">🔄 تحديث القائمة</button>
+            <input type="text" id="search-input" placeholder="ابحث عن أي منتج بالاسم..." oninput="filterProducts()">
+            
+            <div id="products-list">
+                <p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>
             </div>
-        `;
-    });
-    listDiv.innerHTML = html;
-}
+        </div>
+    </div>
 
-function filterProducts() {
-    let searchInput = document.getElementById('search-input');
-    if (!searchInput) return;
-    let query = searchInput.value.toLowerCase();
-    let filtered = allProductsCache.filter(p => p.name && p.name.toLowerCase().includes(query));
-    displayProducts(filtered);
-}
+    <script>
+    let allProductsCache = [];
 
-function addProduct() {
-    const name = document.getElementById('product-name').value;
-    const quantity = document.getElementById('product-quantity').value;
-    const price = document.getElementById('product-price').value;
-
-    fetch('/add-product', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, quantity, price })
-    })
-    .then(res => res.json())
-    .then(data => {
-        const msg = document.getElementById('login-msg');
-        if(msg) {
-            msg.innerText = data.message;
-            msg.className = 'success';
+    async function loadProducts() {
+        let listDiv = document.getElementById('products-list');
+        if (!listDiv) return;
+        listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>';
+        try {
+            let res = await fetch('/api/products');
+            if (!res.ok) {
+                throw new Error('حالة السيرفر غير صحيحة: ' + res.status);
+            }
+            let products = await res.json();
+            allProductsCache = products;
+            displayProducts(products);
+        } catch (err) {
+            listDiv.innerHTML = '<p style="text-align: center; color: #ef4444;">فشل الاتصال: ' + err.message + '</p>';
         }
-        loadProducts();
-    })
-    .catch(err => {
+    }
+
+    function displayProducts(products) {
+        let listDiv = document.getElementById('products-list');
+        if (!listDiv) return;
+        listDiv.innerHTML = '';
+        if (!products || products.length === 0) {
+            listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">لا توجد منتجات مسجلة حالياً (قاعدة البيانات فارغة).</p>';
+            return;
+        }
+        let html = '';
+        products.forEach(p => {
+            html += `
+                <div style="background-color: #334155; padding: 12px; margin-top: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #38bdf8; font-size: 16px;">${p.name || 'بدون اسم'}</strong><br>
+                        <small style="color: #94a3b8;">البائع: ${p.vendor || 'غير محدد'}</small>
+                    </div>
+                    <div>
+                        <span>الكمية: ${p.quantity || 0}</span> | 
+                        <span style="color: #38bdf8; font-weight: bold;">${p.price || 0} ر.س</span>
+                    </div>
+                </div>
+            `;
+        });
+        listDiv.innerHTML = html;
+    }
+
+    function filterProducts() {
+        let searchInput = document.getElementById('search-input');
+        if (!searchInput) return;
+        let query = searchInput.value.toLowerCase();
+        let filtered = allProductsCache.filter(p => p.name && p.name.toLowerCase().includes(query));
+        displayProducts(filtered);
+    }
+
+    function loginAdmin() {
+        const email = document.getElementById('admin-email').value;
+        const password = document.getElementById('admin-password').value;
         const msg = document.getElementById('login-msg');
-        if(msg) {
+
+        fetch('/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (res && res.ok) { // handle based on response
+            }
+            // تحقق من النجاح بناء على شكل رد البايثون عندك
+            msg.innerText = data.message || 'تم تسجيل الدخول بنجاح';
+            msg.className = 'success';
+            document.getElementById('login-card').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+        })
+        .catch(err => {
+            msg.innerText = 'فشل تسجيل الدخول أو خطأ في البيانات';
+            msg.className = 'error';
+        });
+    }
+
+    function addProduct() {
+        const name = document.getElementById('prod-name').value;
+        const quantity = document.getElementById('prod-quantity').value;
+        const price = document.getElementById('prod-price').value;
+        const msg = document.getElementById('add-msg');
+
+        fetch('/add-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, quantity, price })
+        })
+        .then(res => res.json())
+        .then(data => {
+            msg.innerText = data.message || 'تمت إضافة المنتج بنجاح';
+            msg.className = 'success';
+            loadProducts();
+        })
+        .catch(err => {
             msg.innerText = 'حدث خطأ أثناء الإضافة';
             msg.className = 'error';
-        }
-    });
-}
+        });
+    }
 
-loadProducts();
-</script>
+    window.onload = function() {
+        loadProducts();
+    };
+    </script>
 </body>
 </html>
-
-
-
-
-    
-
-        
