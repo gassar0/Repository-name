@@ -100,61 +100,6 @@
         </div>
     </div>
 </div>
-
-<script>
-    // جلب المنتجات تلقائياً عند فتح الصفحة
-    window.onload = function() {
-        loadProducts();
-    };
-
-    function loginAdmin() {
-        const email = document.getElementById('admin-email').value;
-        const password = document.getElementById('admin-password').value;
-
-        fetch('/admin/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                document.getElementById('login-section').style.display = 'none';
-                document.getElementById('admin-panel').style.display = 'block';
-            } else {
-                document.getElementById('login-msg').innerText = data.message;
-                document.getElementById('login-msg').className = 'error';
-            }
-        })
-        .catch(err => {
-            document.getElementById('login-msg').innerText = 'حدث خطأ في الاتصال بالسيرفر';
-            document.getElementById('login-msg').className = 'error';
-        });
-    }
-
-    function addProduct() {
-        const name = document.getElementById('prod-name').value;
-        const quantity = document.getElementById('prod-qty').value;
-        const price = document.getElementById('prod-price').value;
-
-        fetch('/add-product', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, quantity, price })
-        })
-        .then(res => res.json())
-        .then(data => {
-            const msg = document.getElementById('add-msg');
-            msg.innerText = data.message;
-            msg.className = 'success';
-            loadProducts(); // تحديث القائمة فوراً
-        })
-        .catch(err => {
-            const msg = document.getElementById('add-msg');
-            msg.innerText = 'حدث خطأ أثناء الإضافة';
-            msg.className = 'error';
-        });
-    }
 <script>
 let allProductsCache = [];
 
@@ -226,7 +171,7 @@ function addProduct() {
             msg.innerText = data.message;
             msg.className = 'success';
         }
-        loadProducts(); // تحديث القائمة فوراً
+        loadProducts();
     })
     .catch(err => {
         const msg = document.getElementById('login-msg');
@@ -237,10 +182,12 @@ function addProduct() {
     });
 }
 
-// تشغيل دالة التحميل أول ما الصفحة تفتح
 loadProducts();
 </script>
-    
+</body>
+</html>
+
+
 
 
     
