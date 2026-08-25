@@ -64,24 +64,27 @@ def get_users():
             "email": row[1]
         })
     return jsonify(users)
-    
 @app.route('/api/products', methods=['POST'])
 def add_product():
-    data = request.get_json(silent=True) or {}
-    name = data.get('name')
-    quantity = data.get('quantity', 0)
-    price = data.get('price', 0.0)
-    vendor = data.get('vendor', '')
-    
-    if not name:
-        return jsonify({"message": "يرجى إدخال اسم المنتج"}), 400
-    
-    conn = sqlite3.connect("store.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)", (name, quantity, price, vendor))
-    conn.commit()
-    conn.close()
-    return jsonify({"message": "تم إضافة المنتج بنجاح"})
+    try:
+        data = request.get_json(silent=True) or {}
+        name = data.get('name')
+        quantity = data.get('quantity', 0)
+        price = data.get('price', 0.0)
+        vendor = data.get('vendor', '')
+        
+        if not name:
+            return jsonify({"message": "يرجى إدخال اسم المنتج"}), 400
+        
+        conn = sqlite3.connect("store.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)", (name, quantity, price, vendor))
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "تم إضافة المنتج بنجاح"})
+    except Exception as e:
+        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
+        
 
 
 
