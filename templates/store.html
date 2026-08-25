@@ -92,8 +92,11 @@
     <div class="card">
         <h2>📦 قائمة منتجات المتجر العامة</h2>
         <button onclick="loadProducts()" style="background-color: #047857;">🔄 تحديث القائمة</button>
-        <div id="products-list" style="margin-top: 15px;">
-            <p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>
+<input type="text" id="search-input" placeholder="🔍 ابحث عن أي منتج بالاسم..." onkeyup="filterProducts()" style="width: 100%; padding: 10px; margin-top: 10px; margin-bottom: 15px; background-color: #334155; border: 1px solid #475569; border-radius: 5px; color: white; font-size: 14px;">
+<div id="products-list" style="margin-top: 15px;">
+    <p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>
+</div>
+        
         </div>
     </div>
 </div>
@@ -152,40 +155,58 @@
             msg.className = 'error';
         });
     }
+<script>
+let allProductsCache = [];
 
-    function loadProducts() {
-        const listDiv = document.getElementById('products-list');
-        listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">جاري التحديث...</p>';
-
-        fetch('/api/products')
-        .then(res => res.json())
-        .then(products => {
-            listDiv.innerHTML = '';
-            if (products.length === 0) {
-                listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">لا توجد منتجات مضافة حتى الآن.</p>';
-                return;
-            }
-            products.forEach(p => {
-                listDiv.innerHTML += `
-                    <div class="product-item">
-                        <div>
-                            <strong>${p.name}</strong><br>
-                            <small style="color: #94a3b8;">البائع: ${p.vendor}</small>
-                        </div>
-                        <div>
-                            <span>الكمية: ${p.quantity}</span> | 
-                            <span style="color: #38bdf8; font-weight: bold;">${p.price} ر.س</span>
-                        </div>
-                    </div>
-                `;
-            });
-        })
-        .catch(err => {
-            listDiv.innerHTML = '<p class="error">حدث خطأ أثناء تحميل المنتجات.</p>';
-        });
+async function loadProducts() {
+    let listDiv = document.getElementById('products-list');
+    listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">جاري تحميل المنتجات...</p>';
+    try {
+        let res = await fetch('/api/products');
+        let products = await res.json();
+        allProductsCache = products;
+        displayProducts(products);
+    } catch (err) {
+        listDiv.innerHTML = '<p class="error">فشل تحميل المنتجات</p>';
     }
-</script>
+}
 
+function displayProducts(products) {
+    let listDiv = document.getElementById('products-list');
+    listDiv.innerHTML = '';
+    if (products.length === 0) {
+        listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8;">لا توجد منتجات مطابقة للبحث.</p>';
+        return;
+    }
+    let html = '';
+    products.forEach(p => {
+        html += `
+            <div style="background-color: #334155; padding: 12px; margin-top: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong style="color: #38bdf8; font-size: 16px;">${p.name}</strong><br>
+                    <small style="color: #94a3b8;">البائع: ${p.vendor}</small>
+                </div>
+                <div>
+                    <span>الكمية: ${p.quantity}</span> | 
+                    <span style="color: #38bdf8; font-weight: bold;">${p.price} ر.س</span>
+                </div>
+            </div>
+        `;
+    });
+    listDiv.innerHTML = html;
+}
+
+function filterProducts() {
+    let query = document.getElementById('search-input').value.toLowerCase();
+    let filtered = allProductsCache.filter(p => p.name.toLowerCase().includes(query));
+    displayProducts(filtered);
+}
+
+loadProducts();
+</script>
 </body>
 </html>
 
+    
+
+        
