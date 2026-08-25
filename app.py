@@ -8,7 +8,7 @@ def init_db():
   conn = sqlite3.connect("store.db")
   cursor = conn.cursor()
 
-  # إنشاء الجدول بالهيكل الكامل لو مش موجود أصلاً
+  # إنشاء الجدول بالهيكل الكامل لو مش موجود
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,9 +39,27 @@ def init_db():
 init_db()
 
 
+# الصفحة الرئيسية تعرض المنتجات المعتمدة مباشرة
 @app.route("/")
 def index():
-  return render_template("store.html")
+  conn = sqlite3.connect("store.db")
+  cursor = conn.cursor()
+  cursor.execute(
+      "SELECT name, quantity, price, vendor_name FROM products WHERE approved ="
+      " 1"
+  )
+  rows = cursor.fetchall()
+  conn.close()
+
+  products = []
+  for row in rows:
+    products.append({
+        "name": row[0],
+        "quantity": row[1],
+        "price": row[2],
+        "vendor": row[3],
+    })
+  return render_template("store.html", products=products)
 
 
 # تسجيل دخول المدير
@@ -102,7 +120,7 @@ def vendor_add_product():
   })
 
 
-# جلب المنتجات المعتمدة فقط للعامة
+# جلب المنتجات كـ API
 @app.route("/api/products", methods=["GET"])
 def get_public_products():
   conn = sqlite3.connect("store.db")
@@ -127,4 +145,5 @@ def get_public_products():
 
 if __name__ == "__main__":
   app.run(host="0.0.0.0", port=5000)
+  
   
