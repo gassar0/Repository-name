@@ -1,7 +1,6 @@
 Flask
-flask-cors
-flask-jwt-extended
+Flask-SQLAlchemy
+Flask-CORS
+Flask-JWT-Extended
 gunicorn
-
-
 
