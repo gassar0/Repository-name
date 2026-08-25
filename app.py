@@ -7,17 +7,31 @@ app = Flask(__name__)
 def init_db():
   conn = sqlite3.connect("store.db")
   cursor = conn.cursor()
-  # إنشاء جدول المنتجات مع دعم اسم التاجر وحالة الموافقة
+  # إنشاء الجدول الأساسي لو مش موجود
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
-            vendor_name TEXT DEFAULT 'الإدارة',
-            approved INTEGER DEFAULT 1
+            price REAL NOT NULL
         )
     """)
+
+  # إضافة الأعمدة الجديدة بأمان لو الجدول القديم كان موجود من قبل
+  try:
+    cursor.execute(
+        "ALTER TABLE products ADD COLUMN vendor_name TEXT DEFAULT 'الإدارة'"
+    )
+  except:
+    pass
+
+  try:
+    cursor.execute(
+        "ALTER TABLE products ADD COLUMN approved INTEGER DEFAULT 1"
+    )
+  except:
+    pass
+
   conn.commit()
   conn.close()
 
@@ -30,7 +44,7 @@ def index():
   return render_template("store.html")
 
 
-# تسجيل دخول المدير (بالبيانات المعتمدة)
+# تسجيل دخول المدير
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
   data = request.json
@@ -42,7 +56,7 @@ def admin_login():
   return jsonify({"status": "error", "message": "بيانات غير صحيحة"}), 401
 
 
-# إضافة منتج بواسطة المدير (يظهر فوراً في المتجر)
+# إضافة منتج بواسطة المدير (يظهر فوراً)
 @app.route("/add-product", methods=["POST"])
 def add_product():
   data = request.json
@@ -62,7 +76,7 @@ def add_product():
   return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح للمتجر"})
 
 
-# إضافة منتج من تاجر خارجي (ينتظر الموافقة approved = 0)
+# إضافة منتج من تاجر خارجي (ينتظر الموافقة)
 @app.route("/vendor/add-product", methods=["POST"])
 def vendor_add_product():
   data = request.json
@@ -88,7 +102,7 @@ def vendor_add_product():
   })
 
 
-# جلب المنتجات المعتمدة فقط للعامة في المتجر
+# جلب المنتجات المعتمدة فقط للعامة
 @app.route("/api/products", methods=["GET"])
 def get_public_products():
   conn = sqlite3.connect("store.db")
@@ -103,14 +117,15 @@ def get_public_products():
   products = []
   for row in rows:
     products.append({
-        "name": row,
-        "quantity": row,
-        "price": row,
-        "vendor": row,
+        "name": row[0],
+        "quantity": row[1],
+        "price": row[2],
+        "vendor": row[3],
     })
   return jsonify(products)
 
 
 if __name__ == "__main__":
   app.run(host="0.0.0.0", port=5000)
+  
     
