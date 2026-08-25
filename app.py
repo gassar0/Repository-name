@@ -1,155 +1,90 @@
-import sqlite3
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from flask_jwt_extended import (
-    JWTManager,
-    create_access_token,
-    get_jwt_identity,
-    jwt_required,
-)
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 
 app = Flask(__name__)
-CORS(app)  # تفعيل الـ CORS لحل مشكلة الاتصال من المتصفح نهائياً
+CORS(app)
 
-# إعدادات الأمان والتشفير (JWT)
-app.config["JWT_SECRET_KEY"] = "super-secret-key-change-this"
+# إعدادات قاعدة البيانات والسيرفر
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['JWT_SECRET_KEY'] = 'super-secret-key-change-it'  # مفتاح الأمان للتوكن
+db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
+# جدول المنتجات في قاعدة البيانات
+class Product(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float, nullable=False)
 
-# دالة الاتصال بقاعدة البيانات
-def get_db_connection():
-  conn = sqlite3.connect("database.db")
-  conn.row_factory = sqlite3.Row
-  return conn
+# إنشاء جدول البيانات لو مش موجود
+with app.app_context():
+    db.create_all()
 
-
-# إنشـاء الجداول والمستخدم الافتراضي تلقائياً
-def init_db():
-  conn = get_db_connection()
-  # جدول المستخدمين
-  conn.execute(
-      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT,"
-      " username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)"
-  )
-  # جدول المخزن والمنتجات
-  conn.execute(
-      "CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY"
-      " AUTOINCREMENT, name TEXT NOT NULL, quantity INTEGER NOT NULL, price"
-      " REAL NOT NULL)"
-  )
-
-  # إضافة حسابك الافتراضي تلقائياً
-  user = conn.execute(
-      "SELECT * FROM users WHERE username = ?", ("mmmmm_mmmmm319@yahoo.com",)
-  ).fetchone()
-  if not user:
-    conn.execute(
-        "INSERT INTO users (username, password) VALUES (?, ?)",
-        ("mmmmm_mmmmm319@yahoo.com", "Zx1231992"),
-    )
-
-  conn.commit()
-  conn.close()
-
-
-# تشغيل تهيئة القاعدة أول ما السيرفر يقوم
-init_db()
-
-
-# 1. مسار تسجيل الدخول وإعطاء التوكن
-@app.route("/api/auth/login", methods=["POST"])
+# مسار تسجيل الدخول (ليك أنت وحدك)
+@app.route('/api/auth/login', methods=['POST'])
 def login():
-  data = request.get_json()
-  if not data or not data.get("username") or not data.get("password"):
-    return (
-        jsonify({"status": "error", "message": "اسم المستخدم وكلمة المرور مطلوبان"}),
-        400,
-    )
-
-  username = data["username"]
-  password = data["password"]
-
-  conn = get_db_connection()
-  user = conn.execute(
-      "SELECT * FROM users WHERE username = ? AND password = ?",
-      (username, password),
-  ).fetchone()
-  conn.close()
-
-  if user:
-    token = create_access_token(identity=username)
-    return jsonify({"status": "success", "token": token}), 200
-  else:
-    return (
-        jsonify({"status": "error", "message": "بيانات الدخول غير صحيحة"}),
-        401,
-    )
-
-
-# 2. مسار جلب وعرض المنتجات (GET) أو إضافة منتج جديد (POST)
-@app.route("/api/inventory", methods=["GET", "POST"])
-@jwt_required()
-def inventory():
-  conn = get_db_connection()
-
-  if request.method == "GET":
-    products = conn.execute("SELECT * FROM inventory").fetchall()
-    conn.close()
-    return (
-        jsonify({
-            "status": "success",
-            "products": [dict(p) for p in products],
-        }),
-        200,
-    )
-
-  if request.method == "POST":
     data = request.get_json()
-    if (
-        not data
-        or "name" not in data
-        or "quantity" not in data
-        or "price" not in data
-    ):
-      conn.close()
-      return (
-          jsonify({"status": "error", "message": "بيانات المنتج غير مكتملة"}),
-          400,
-      )
+    username = data.get('username')
+    password = data.get('password')
+    
+    # الإيميل والباسورد الثابتين بتوعك
+    if username == 'mmmmm_mmmmm319@yahoo.com' and password == 'Zx1231992':
+        access_token = create_access_token(identity=username)
+        return jsonify(token=access_token), 200
+    
+    return jsonify({'message': 'بيانات الدخول غير صحيحة'}), 401
 
-    name = data["name"]
-    quantity = data["quantity"]
-    price = data["price"]
+# 1. جلب وعرض المنتجات (متاح للجميع - للعامة في المتجر من غير تسجيل دخول)
+@app.route('/api/inventory', methods=['GET'])
+def get_inventory():
+    try:
+        products = Product.query.all()
+        products_list = []
+        for p in products:
+            products_list.append({
+                'id': p.id,
+                'name': p.name,
+                'quantity': p.quantity,
+                'price': p.price
+            })
+        return jsonify({'products': products_list}), 200
+    except Exception as e:
+        return jsonify({'message': 'حدث خطأ', 'error': str(e)}), 500
 
-    conn.execute(
-        "INSERT INTO inventory (name, quantity, price) VALUES (?, ?, ?)",
-        (name, quantity, price),
-    )
-    conn.commit()
-    conn.close()
-    return (
-        jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح"}),
-        201,
-    )
+# 2. إضافة منتج جديد (محمي - ليك أنت وحدك بصلاحية المدير)
+@app.route('/api/inventory', methods=['POST'])
+@jwt_required()
+def add_product():
+    data = request.get_json()
+    name = data.get('name')
+    quantity = data.get('quantity')
+    price = data.get('price')
+    
+    if not name or quantity is None or price is None:
+        return jsonify({'message': 'جميع الحقول مطلوبة'}), 400
+        
+    new_product = Product(name=name, quantity=quantity, price=price)
+    db.session.add(new_product)
+    db.session.commit()
+    
+    return jsonify({'message': 'تم إضافة المنتج بنجاح'}), 201
 
-
-# 3. مسار حذف منتج (DELETE)
-@app.route("/api/inventory/<int:id>", methods=["DELETE"])
+# 3. حذف منتج (محمي - ليك أنت وحدك)
+@app.route('/api/inventory/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_product(id):
-  conn = get_db_connection()
-  product = conn.execute("SELECT * FROM inventory WHERE id = ?", (id,)).fetchone()
-  if not product:
-    conn.close()
-    return jsonify({"status": "error", "message": "المنتج غير موجود"}), 404
+    product = Product.query.get(id)
+    if not product:
+        return jsonify({'message': 'المنتج غير موجود'}), 404
+        
+    db.session.delete(product)
+    db.session.commit()
+    
+    return jsonify({'message': 'تم حذف المنتج بنجاح'}), 200
 
-  conn.execute("DELETE FROM inventory WHERE id = ?", (id,))
-  conn.commit()
-  conn.close()
-  return jsonify({"status": "success", "message": "تم حذف المنتج بنجاح"}), 200
-
-
-if __name__ == "__main__":
-  app.run(host="0.0.0.0", port=5000)
-      
+if __name__ == '__main__':
+    app.run(debug=True)
     
