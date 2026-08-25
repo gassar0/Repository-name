@@ -204,5 +204,25 @@ def export_excel():
 
 if __name__ == "__main__":
   app.run(host="0.0.0.0", port=5000)
-  
+ import csv
+from flask import make_response
+
+@app.route('/api/export-excel', methods=['GET'])
+def export_excel():
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, quantity, price, vendor FROM products")
+    rows = cursor.fetchall()
+    conn.close()
+
+    # تجهيز ملف بصيغة متوافقة تماماً مع الإكسل
+    csv_data = "اسم المنتج,الكمية,السعر (ر.س),البائع\n"
+    for row in rows:
+        csv_data += f"{row[0]},{row[1]},{row[2]},{row[3]}\n"
+
+    response = make_response(csv_data.encode('utf-8-sig'))
+    response.headers["Content-Disposition"] = "attachment; filename=products_report.csv"
+    response.headers["Content-Type"] = "text/csv; charset=utf-8-sig"
+    return response
+ 
   
