@@ -120,7 +120,13 @@ def get_public_products():
     })
   return jsonify(products)
 
-
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    users_list = [
+        {"name": "محمد رجب حافظ", "email": "mmmmm_mmmmm319@yahoo.com", "role": "مدير النظام", "status": "نشط"}
+    ]
+    return jsonify(users_list)
+  
 @app.route("/api/admin/products", methods=["GET"])
 def get_admin_products():
   conn = sqlite3.connect("store.db")
