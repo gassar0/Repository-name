@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required
@@ -6,10 +6,13 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 app = Flask(__name__)
 CORS(app)
 
-# إعدادات قاعدة البيانات والسيرفر
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-app.config['JWT_SECRET_KEY'] = 'super-secret-key-change-it'  # مفتاح الأمان للتوكن
+# إعدادات قاعدة البيانات
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventory.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+# إعدادات الحماية والـ JWT
+app.config['JWT_SECRET_KEY'] = 'super-secret-key-change-this'
 jwt = JWTManager(app)
 
 # جدول المنتجات في قاعدة البيانات
@@ -19,42 +22,42 @@ class Product(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
 
-# إنشاء جدول البيانات لو مش موجود
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "quantity": self.quantity,
+            "price": self.price
+        }
+
 with app.app_context():
     db.create_all()
 
-# مسار تسجيل الدخول (ليك أنت وحدك)
+# مسار الصفحة الرئيسية لعرض المتجر تلقائياً
+@app.route('/')
+def home():
+    return send_from_directory('.', 'store.html')
+
+# مسار تسجيل دخول المدير
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
     
-    # الإيميل والباسورد الثابتين بتوعك
+    # بيانات المدير المطابقة لصفحة المتجر
     if username == 'mmmmm_mmmmm319@yahoo.com' and password == 'Zx1231992':
         access_token = create_access_token(identity=username)
         return jsonify(token=access_token), 200
-    
-    return jsonify({'message': 'بيانات الدخول غير صحيحة'}), 401
+    return jsonify({"msg": "خطأ في الإيميل أو كلمة المرور"}), 401
 
-# 1. جلب وعرض المنتجات (متاح للجميع - للعامة في المتجر من غير تسجيل دخول)
+# مسار عرض المنتجات (متاح للجميع بدون تسجيل دخول)
 @app.route('/api/inventory', methods=['GET'])
 def get_inventory():
-    try:
-        products = Product.query.all()
-        products_list = []
-        for p in products:
-            products_list.append({
-                'id': p.id,
-                'name': p.name,
-                'quantity': p.quantity,
-                'price': p.price
-            })
-        return jsonify({'products': products_list}), 200
-    except Exception as e:
-        return jsonify({'message': 'حدث خطأ', 'error': str(e)}), 500
+    products = Product.query.all()
+    return jsonify({"products": [p.to_dict() for p in products]}), 200
 
-# 2. إضافة منتج جديد (محمي - ليك أنت وحدك بصلاحية المدير)
+# مسار إضافة منتج جديد (محمي بصلاحيات المدير فقط)
 @app.route('/api/inventory', methods=['POST'])
 @jwt_required()
 def add_product():
@@ -62,29 +65,15 @@ def add_product():
     name = data.get('name')
     quantity = data.get('quantity')
     price = data.get('price')
-    
+
     if not name or quantity is None or price is None:
-        return jsonify({'message': 'جميع الحقول مطلوبة'}), 400
-        
+        return jsonify({"msg": "الرجاء إدخال جميع البيانات"}), 400
+
     new_product = Product(name=name, quantity=quantity, price=price)
     db.session.add(new_product)
     db.session.commit()
-    
-    return jsonify({'message': 'تم إضافة المنتج بنجاح'}), 201
-
-# 3. حذف منتج (محمي - ليك أنت وحدك)
-@app.route('/api/inventory/<int:id>', methods=['DELETE'])
-@jwt_required()
-def delete_product(id):
-    product = Product.query.get(id)
-    if not product:
-        return jsonify({'message': 'المنتج غير موجود'}), 404
-        
-    db.session.delete(product)
-    db.session.commit()
-    
-    return jsonify({'message': 'تم حذف المنتج بنجاح'}), 200
+    return jsonify({"msg": "تم إضافة المنتج بنجاح", "product": new_product.to_dict()}), 201
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
     
