@@ -50,7 +50,21 @@ def get_products():
             "vendor": row[4]
         })
     return jsonify(products)
-
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, email FROM users")
+    rows = cursor.fetchall()
+    conn.close()
+    users = []
+    for row in rows:
+        users.append({
+            "id": row[0],
+            "email": row[1]
+        })
+    return jsonify(users)
+    
 @app.route('/api/products', methods=['POST'])
 def add_product():
     data = request.get_json(silent=True) or {}
