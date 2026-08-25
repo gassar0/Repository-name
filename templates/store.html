@@ -47,8 +47,8 @@
         button:hover {
             background-color: #1d4ed8;
         }
-        .success { color: #4ade80; text-align: center; margin-top: 10px; }
-        .error { color: #ef4444; text-align: center; margin-top: 10px; }
+        .success { color: #4ade80; text-align: center; margin-top: 10px; font-weight: bold; }
+        .error { color: #ef4444; text-align: center; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -151,18 +151,26 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         })
-        .then(res => res.json())
-        .then(data => {
-            if (res && res.ok) { // handle based on response
+        .then(async res => {
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                throw new Error('السيرفر لم يعود ببيانات صالحة');
             }
-            // تحقق من النجاح بناء على شكل رد البايثون عندك
+            if (!res.ok) {
+                throw new Error(data.message || 'خطأ في بيانات الدخول');
+            }
+            return data;
+        })
+        .then(data => {
             msg.innerText = data.message || 'تم تسجيل الدخول بنجاح';
             msg.className = 'success';
             document.getElementById('login-card').style.display = 'none';
             document.getElementById('admin-panel').style.display = 'block';
         })
         .catch(err => {
-            msg.innerText = 'فشل تسجيل الدخول أو خطأ في البيانات';
+            msg.innerText = 'فشل تسجيل الدخول: ' + err.message;
             msg.className = 'error';
         });
     }
@@ -178,14 +186,18 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, quantity, price })
         })
-        .then(res => res.json())
+        .then(async res => {
+            let data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'خطأ في الإضافة');
+            return data;
+        })
         .then(data => {
             msg.innerText = data.message || 'تمت إضافة المنتج بنجاح';
             msg.className = 'success';
             loadProducts();
         })
         .catch(err => {
-            msg.innerText = 'حدث خطأ أثناء الإضافة';
+            msg.innerText = err.message;
             msg.className = 'error';
         });
     }
@@ -196,3 +208,5 @@
     </script>
 </body>
 </html>
+
+                    
