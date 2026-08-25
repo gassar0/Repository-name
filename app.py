@@ -1,5 +1,7 @@
+import csv
+import io
 import sqlite3
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request
 
 app = Flask(__name__)
 
@@ -8,7 +10,6 @@ def init_db():
   conn = sqlite3.connect("store.db")
   cursor = conn.cursor()
 
-  # إنشاء الجدول بالهيكل الكامل لو مش موجود
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,7 +21,6 @@ def init_db():
         )
     """)
 
-  # التأكد بذكاء من وجود الأعمدة الجديدة وإضافتها لو ناقصة
   cursor.execute("PRAGMA table_info(products)")
   columns = [info[1] for info in cursor.fetchall()]
 
@@ -39,13 +39,11 @@ def init_db():
 init_db()
 
 
-# الصفحة الرئيسية تعرض الواجهة مباشرة
 @app.route("/")
 def index():
   return render_template("store.html")
 
 
-# تسجيل دخول المدير
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
   data = request.json
@@ -57,7 +55,6 @@ def admin_login():
   return jsonify({"status": "error", "message": "بيانات غير صحيحة"}), 401
 
 
-# إضافة منتج بواسطة المدير (يظهر فوراً)
 @app.route("/add-product", methods=["POST"])
 def add_product():
   data = request.json
@@ -77,7 +74,6 @@ def add_product():
   return jsonify({"status": "success", "message": "تم إضافة المنتج بنجاح للمتجر"})
 
 
-# إضافة منتج من تاجر خارجي (ينتظر الموافقة)
 @app.route("/vendor/add-product", methods=["POST"])
 def vendor_add_product():
   data = request.json
@@ -103,7 +99,6 @@ def vendor_add_product():
   })
 
 
-# جلب المنتجات المعتمدة للعامة
 @app.route("/api/products", methods=["GET"])
 def get_public_products():
   conn = sqlite3.connect("store.db")
@@ -126,7 +121,6 @@ def get_public_products():
   return jsonify(products)
 
 
-# جلب كل المنتجات للمدير (بما فيها غير المعتمدة)
 @app.route("/api/admin/products", methods=["GET"])
 def get_admin_products():
   conn = sqlite3.connect("store.db")
@@ -150,7 +144,6 @@ def get_admin_products():
   return jsonify(products)
 
 
-# الموافقة على منتج
 @app.route("/admin/approve-product", methods=["POST"])
 def approve_product():
   data = request.json
@@ -163,7 +156,6 @@ def approve_product():
   return jsonify({"status": "success", "message": "تم اعتماد المنتج بنجاح"})
 
 
-# حذف منتج
 @app.route("/admin/delete-product", methods=["POST"])
 def delete_product():
   data = request.json
@@ -176,9 +168,35 @@ def delete_product():
   return jsonify({"status": "success", "message": "تم حذف المنتج بنجاح"})
 
 
+@app.route("/admin/export-excel", methods=["GET"])
+def export_excel():
+  conn = sqlite3.connect("store.db")
+  cursor = conn.cursor()
+  cursor.execute(
+      "SELECT id, name, quantity, price, vendor_name, approved FROM products"
+  )
+  rows = cursor.fetchall()
+  conn.close()
+
+  output = io.StringIO()
+  output.write("\ufeff")
+  writer = csv.writer(output)
+  writer.writerow(["م", "اسم المنتج", "الكمية", "السعر", "البائع", "الحالة"])
+
+  for row in rows:
+    status = "معتمد" if row[5] == 1 else "قيد الانتظار"
+    writer.writerow([row[0], row[1], row[2], row[3], row[4], status])
+
+  response = make_response(output.getvalue())
+  response.headers["Content-Disposition"] = (
+      "attachment; filename=store_report.csv"
+  )
+  response.headers["Content-type"] = "text/csv; charset=utf-8-sig"
+
+  return response
+
+
 if __name__ == "__main__":
   app.run(host="0.0.0.0", port=5000)
-  
-  
   
   
