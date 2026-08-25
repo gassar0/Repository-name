@@ -39,7 +39,7 @@ def init_db():
 init_db()
 
 
-# الصفحة الرئيسية تعرض الواجهة مباشرة بأمان تام
+# الصفحة الرئيسية تعرض الواجهة مباشرة
 @app.route("/")
 def index():
   return render_template("store.html")
@@ -124,6 +124,56 @@ def get_public_products():
         "vendor": row[3],
     })
   return jsonify(products)
+
+
+# جلب كل المنتجات للمدير (بما فيها غير المعتمدة)
+@app.route("/api/admin/products", methods=["GET"])
+def get_admin_products():
+  conn = sqlite3.connect("store.db")
+  cursor = conn.cursor()
+  cursor.execute(
+      "SELECT id, name, quantity, price, vendor_name, approved FROM products"
+  )
+  rows = cursor.fetchall()
+  conn.close()
+
+  products = []
+  for row in rows:
+    products.append({
+        "id": row[0],
+        "name": row[1],
+        "quantity": row[2],
+        "price": row[3],
+        "vendor": row[4],
+        "approved": row[5],
+    })
+  return jsonify(products)
+
+
+# الموافقة على منتج
+@app.route("/admin/approve-product", methods=["POST"])
+def approve_product():
+  data = request.json
+  prod_id = data.get("id")
+  conn = sqlite3.connect("store.db")
+  cursor = conn.cursor()
+  cursor.execute("UPDATE products SET approved = 1 WHERE id = ?", (prod_id,))
+  conn.commit()
+  conn.close()
+  return jsonify({"status": "success", "message": "تم اعتماد المنتج بنجاح"})
+
+
+# حذف منتج
+@app.route("/admin/delete-product", methods=["POST"])
+def delete_product():
+  data = request.json
+  prod_id = data.get("id")
+  conn = sqlite3.connect("store.db")
+  cursor = conn.cursor()
+  cursor.execute("DELETE FROM products WHERE id = ?", (prod_id,))
+  conn.commit()
+  conn.close()
+  return jsonify({"status": "success", "message": "تم حذف المنتج بنجاح"})
 
 
 if __name__ == "__main__":
