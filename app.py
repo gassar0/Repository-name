@@ -87,6 +87,39 @@ def add_product():
     except Exception as e:
         return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
 
+@app.route('/api/products/<int:id>', methods=['PUT'])
+def update_product(id):
+    try:
+        data = request.get_json(silent=True) or {}
+        name = data.get('name')
+        quantity = data.get('quantity', 0)
+        price = data.get('price', 0.0)
+        vendor = data.get('vendor', '')
+        
+        if not name:
+            return jsonify({"message": "يرجى إدخال اسم المنتج"}), 400
+        
+        conn = sqlite3.connect("store.db")
+        cursor = conn.cursor()
+        cursor.execute("UPDATE products SET name = ?, quantity = ?, price = ?, vendor = ? WHERE id = ?", (name, quantity, price, vendor, id))
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "تم تعديل المنتج بنجاح"})
+    except Exception as e:
+        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
+
+@app.route('/api/products/<int:id>', methods=['DELETE'])
+def delete_product(id):
+    try:
+        conn = sqlite3.connect("store.db")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM products WHERE id = ?", (id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "تم حذف المنتج بنجاح"})
+    except Exception as e:
+        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
+
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
     data = request.get_json(silent=True) or {}
@@ -115,6 +148,7 @@ def export_excel():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
  
