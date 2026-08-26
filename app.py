@@ -1,16 +1,21 @@
-import requests
-import csv
-import io
+import os
 import sqlite3
-from flask import Flask, jsonify, make_response, render_template, request, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
+import requests
 
 app = Flask(__name__)
-app.secret_key = 'smart_warehouse_secret_key_2026'
+app.secret_key = 'smart_store_secret_key'
 
 def init_db():
-    conn = sqlite3.connect("store.db")
+    conn = sqlite3.connect('store.db')
     cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,132 +25,83 @@ def init_db():
             vendor TEXT
         )
     ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    ''')
     conn.commit()
     conn.close()
 
+# تهيئة قاعدة البيانات عند بدء التشغيل
 init_db()
 
 @app.route('/')
 def index():
-    return render_template('store.html')
-
-@app.route('/api/register', methods=['POST'])
-def register():
-    try:
-        data = request.get_json(silent=True) or {}
-        email = data.get('email')
-        password = data.get('password')
-
-        if not email or not password:
-            return jsonify({"message": "يرجى إدخال البريد الإلكتروني وكلمة المرور"}), 400
-
-        hashed_password = generate_password_hash(password)
-
-        conn = sqlite3.connect("store.db")
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_password))
-        conn.commit()
-        conn.close()
-
-        session['user_email'] = email
-        return jsonify({"message": "تم إنشاء الحساب بنجاح"})
-    except sqlite3.IntegrityError:
-        return jsonify({"message": "البريد الإلكتروني مستخدم مسبقاً"}), 400
-    except Exception as e:
-        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    try:
-        data = request.get_json(silent=True) or {}
-        email = data.get('email')
-        password = data.get('password')
-
-        if not email or not password:
-            return jsonify({"message": "يرجى إدخال البريد الإلكتروني وكلمة المرور"}), 400
-
-        conn = sqlite3.connect("store.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT password FROM users WHERE email = ?", (email,))
-        row = cursor.fetchone()
-        conn.close()
-
-        if row and check_password_hash(row[0], password):
-            session['user_email'] = email
-            return jsonify({"message": "تم تسجيل الدخول بنجاح"})
-        else:
-            return jsonify({"message": "البيانات غير صحيحة"}), 401
-    except Exception as e:
-        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
-
-@app.route('/api/check-auth', methods=['GET'])
-def check_auth():
-    if 'user_email' in session:
-        return jsonify({"logged_in": True, "email": session['user_email']})
-    return jsonify({"logged_in": False})
-
-@app.route('/api/logout', methods=['POST'])
-def logout():
-    session.pop('user_email', None)
-    return jsonify({"message": "تم تسجيل الخروج بنجاح"})
-
-@app.route('/api/products', methods=['GET'])
-def get_products():
-    conn = sqlite3.connect("store.db")
+    conn = sqlite3.connect('store.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, quantity, price, vendor FROM products")
-    rows = cursor.fetchall()
+    cursor.execute('SELECT * FROM products')
+    products = cursor.fetchall()
     conn.close()
-    products = []
-    for row in rows:
-        products.append({
-            "id": row[0],
-            "name": row[1],
-            "quantity": row[2],
-            "price": row[3],
-            "vendor": row[4]
-        })
-    return jsonify(products)
+    return render_template('index.html', products=products)
 
-@app.route('/api/products', methods=['POST'])
-def add_product():
-    if 'user_email' not in session:
-        return jsonify({"message": "أولاً لإضافة منتجات"}), 401
-    try:
-        data = request.get_json(silent=True) or {}
-        name = data.get('name')
-        quantity = data.get('quantity', 0)
-        price = data.get('price', 0.0)
-        vendor = data.get('vendor', '')
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        try:
+            conn = sqlite3.connect('store.db')
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            return "اسم المستخدم موجود مسبقاً!"
+    return render_template('register.html')
 
-        if not name:
-            return jsonify({"message": "أدخل اسم المنتج"}), 400
-
-        conn = sqlite3.connect("store.db")
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        conn = sqlite3.connect('store.db')
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)", (name, quantity, price, vendor))
-        conn.commit()
+        cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
+        user = cursor.fetchone()
         conn.close()
-        return jsonify({"message": "تم إضافة المنتج بنجاح"})
-    except Exception as e:
-        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
+        if user:
+            session['username'] = username
+            return redirect(url_for('index'))
+        else:
+            return "خطأ في اسم المستخدم أو كلمة المرور!"
+    return render_template('login.html')
 
-@app.route('/api/export-excel', methods=['GET'])
-def export_excel():
-    conn = sqlite3.connect("store.db")
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    return redirect(url_for('index'))
+
+@app.route('/add-product', methods=['POST'])
+def add_product():
+    name = request.form.get('name')
+    quantity = request.form.get('quantity')
+    price = request.form.get('price')
+    vendor = request.form.get('vendor')
+    
+    conn = sqlite3.connect('store.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)', 
+                   (name, quantity, price, vendor))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/export-csv')
+def export_csv():
+    conn = sqlite3.connect('store.db')
     cursor = conn.cursor()
     cursor.execute("SELECT name, quantity, price, vendor FROM products")
     rows = cursor.fetchall()
     conn.close()
 
-    csv_data = "اسم المنتج,الكمية,السعر (ر.س),البائع\n"
+    csv_data = "اسم المنتح,الكمية,السعر (ر.س),البائع\n"
     for row in rows:
         csv_data += f"{row[0]},{row[1]},{row[2]},{row[3]}\n"
 
@@ -179,25 +135,5 @@ def create_payment():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-        # ضع مفتاح ميسر الفعلي الكامل هنا
-api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
-        
-        
-        payload = {
-            "amount": int(float(amount) * 100),
-            "currency": "SAR",
-            "description": "Smart Store Order"
-        }
-        
-        headers = {
-            "Content-Type": "application/json"
-        }
-        
-        response = requests.post(moyasar_url, json=payload, headers=headers, auth=(api_key, ""))
-        
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
