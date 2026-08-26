@@ -41,6 +41,10 @@
         .btn-green:hover { background-color: #047857; }
         .btn-excel { background-color: #0d9488; }
         .btn-excel:hover { background-color: #0f766e; }
+        .btn-edit { background-color: #d97706; padding: 6px 12px; width: auto; margin: 2px; }
+        .btn-edit:hover { background-color: #b45309; }
+        .btn-delete { background-color: #dc2626; padding: 6px 12px; width: auto; margin: 2px; }
+        .btn-delete:hover { background-color: #b91c1c; }
         .success { color: #4ade80; text-align: center; }
         .error { color: #f87171; text-align: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -52,14 +56,16 @@
 
     <h2>📦 متجر المخزن الذكي</h2>
 
-    <!-- إضافة منتج جديد -->
+    <!-- إضافة / تعديل منتج -->
     <div class="card">
-        <h3>➕ إضافة منتج جديد</h3>
+        <h3 id="form-title">➕ إضافة منتج جديد</h3>
+        <input type="hidden" id="edit-id">
         <input type="text" id="prod-name" placeholder="اسم المنتج">
         <input type="number" id="prod-quantity" placeholder="الكمية">
         <input type="number" step="0.01" id="prod-price" placeholder="السعر (ر.س)">
         <input type="text" id="prod-vendor" placeholder="اسم البائع (اختياري)">
-        <button onclick="addProduct()">إضافة المنتج للسيرفر</button>
+        <button id="submit-btn" onclick="saveProduct()">إضافة المنتج للسيرفر</button>
+        <button id="cancel-btn" style="background-color: #475569; display: none;" onclick="resetForm()">إلغاء التعديل</button>
         <p id="add-msg"></p>
     </div>
 
@@ -81,10 +87,11 @@
                         <th>الكمية</th>
                         <th>السعر</th>
                         <th>البائع</th>
+                        <th>الإجراءات</th>
                     </tr>
-                
+                </thead>
                 <tbody id="products-table">
-                    <tr><td colspan="5">لا توجد منتجات مسجلة حالياً.</td></tr>
+                    <tr><td colspan="6">لا توجد منتجات مسجلة حالياً.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -110,31 +117,32 @@
     </div>
 
     <script>
-        function addProduct() {
+        function saveProduct() {
+            const editId = document.getElementById('edit-id').value;
             const name = document.getElementById('prod-name').value;
             const quantity = document.getElementById('prod-quantity').value;
             const price = document.getElementById('prod-price').value;
             const vendor = document.getElementById('prod-vendor').value;
             const msg = document.getElementById('add-msg');
 
-            fetch('/api/products', {
-                method: 'POST',
+            const url = editId ? `/api/products/${editId}` : '/api/products';
+            const method = editId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, quantity, price, vendor })
             })
             .then(async res => {
                 let data = await res.json();
-                if (!res.ok) throw new Error(data.message || 'فشل إضافة المنتج');
+                if (!res.ok) throw new Error(data.message || 'فشل العملية');
                 return data;
             })
             .then(data => {
-                msg.innerText = data.message || 'تم إضافة المنتج بنجاح';
+                msg.innerText = data.message || 'تم بنجاح';
                 msg.className = 'success';
                 loadProducts();
-                document.getElementById('prod-name').value = '';
-                document.getElementById('prod-quantity').value = '';
-                document.getElementById('prod-price').value = '';
-                document.getElementById('prod-vendor').value = '';
+                resetForm();
             })
             .catch(err => {
                 msg.innerText = err.message;
@@ -149,7 +157,7 @@
                 const tbody = document.getElementById('products-table');
                 tbody.innerHTML = '';
                 if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5">لا توجد منتجات مسجلة حالياً.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6">لا توجد منتجات مسجلة حالياً.</td></tr>';
                     return;
                 }
                 data.forEach(p => {
@@ -159,10 +167,59 @@
                         <td>${p.quantity}</td>
                         <td>${p.price}</td>
                         <td>${p.vendor || '-'}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editProduct(${p.id}, '${p.name}', ${p.quantity}, ${p.price}, '${p.vendor || ''}')">تعديل</button>
+                            <button class="btn-delete" onclick="deleteProduct(${p.id})">حذف</button>
+                        </td>
                     </tr>`;
                 });
             })
             .catch(err => console.error('خطأ في جلب المنتجات:', err));
+        }
+
+        function editProduct(id, name, quantity, price, vendor) {
+            document.getElementById('edit-id').value = id;
+            document.getElementById('prod-name').value = name;
+            document.getElementById('prod-quantity').value = quantity;
+            document.getElementById('prod-price').value = price;
+            document.getElementById('prod-vendor').value = vendor === 'null' ? '' : vendor;
+            
+            document.getElementById('form-title').innerText = '✏️ تعديل المنتج رقم ' + id;
+            document.getElementById('submit-btn').innerText = 'حفظ التعديلات';
+            document.getElementById('submit-btn').style.backgroundColor = '#d97706';
+            document.getElementById('cancel-btn').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            document.getElementById('edit-id').value = '';
+            document.getElementById('prod-name').value = '';
+            document.getElementById('prod-quantity').value = '';
+            document.getElementById('prod-price').value = '';
+            document.getElementById('prod-vendor').value = '';
+            
+            document.getElementById('form-title').innerText = '➕ إضافة منتج جديد';
+            document.getElementById('submit-btn').innerText = 'إضافة المنتج للسيرفر';
+            document.getElementById('submit-btn').style.backgroundColor = '#2563eb';
+            document.getElementById('cancel-btn').style.display = 'none';
+        }
+
+        function deleteProduct(id) {
+            if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
+
+            fetch(`/api/products/${id}`, {
+                method: 'DELETE'
+            })
+            .then(async res => {
+                let data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'فشل الحذف');
+                return data;
+            })
+            .then(data => {
+                alert(data.message || 'تم الحذف بنجاح');
+                loadProducts();
+            })
+            .catch(err => alert('خطأ: ' + err.message));
         }
 
         function loadUsers() {
@@ -192,4 +249,5 @@
     </script>
 </body>
 </html>
+
 
