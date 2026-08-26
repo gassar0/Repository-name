@@ -3,7 +3,7 @@ import csv
 import io
 import sqlite3
 from flask import Flask, jsonify, make_response, render_template, request, session
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'smart_warehouse_secret_key_2026'
@@ -35,6 +35,66 @@ init_db()
 @app.route('/')
 def index():
     return render_template('store.html')
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    try:
+        data = request.get_json(silent=True) or {}
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return jsonify({"message": "يرجى إدخال البريد الإلكتروني وكلمة المرور"}), 400
+
+        hashed_password = generate_password_hash(password)
+
+        conn = sqlite3.connect("store.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_password))
+        conn.commit()
+        conn.close()
+
+        session['user_email'] = email
+        return jsonify({"message": "تم إنشاء الحساب بنجاح"})
+    except sqlite3.IntegrityError:
+        return jsonify({"message": "البريد الإلكتروني مستخدم مسبقاً"}), 400
+    except Exception as e:
+        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json(silent=True) or {}
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return jsonify({"message": "يرجى إدخال البريد الإلكتروني وكلمة المرور"}), 400
+
+        conn = sqlite3.connect("store.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT password FROM users WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row and check_password_hash(row[0], password):
+            session['user_email'] = email
+            return jsonify({"message": "تم تسجيل الدخول بنجاح"})
+        else:
+            return jsonify({"message": "البيانات غير صحيحة"}), 401
+    except Exception as e:
+        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
+
+@app.route('/api/check-auth', methods=['GET'])
+def check_auth():
+    if 'user_email' in session:
+        return jsonify({"logged_in": True, "email": session['user_email']})
+    return jsonify({"logged_in": False})
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.pop('user_email', None)
+    return jsonify({"message": "تم تسجيل الخروج بنجاح"})
 
 @app.route('/api/products', methods=['GET'])
 def get_products():
