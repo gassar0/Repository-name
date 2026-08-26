@@ -30,6 +30,9 @@ def init_db():
     conn.commit()
     conn.close()
 
+# تشغيل قاعدة البيانات فوراً عند بدء تشغيل التطبيق على السيرفر
+init_db()
+
 # الصفحة الرئيسية للمتجر ودفع ميسر
 @app.route('/')
 def index():
@@ -244,5 +247,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)
