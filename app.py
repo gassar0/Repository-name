@@ -203,10 +203,11 @@ def export_excel():
 @app.route('/create-payment', methods=['POST'])
 def create_payment():
     data = request.json
-       amount = data.get('amount') # المبلغ بالهللة
+    amount = data.get('amount')
     currency = "SAR"
     description = "طلب شراء من المتجر الذكي"
-        url = "https://api.moyasar.com/v1/payments"
+    
+    url = "https://api.moyasar.com/v1/payments"
     api_key = "sk_test_مفتاحك_هنا"
     
     payload = {
@@ -229,30 +230,6 @@ def create_payment():
     except Exception as e:
         return jsonify({"message": f"خطأ في الاتصال: {str(e)}"}), 500
 
-    
-        "amount": amount,
-        "currency": currency,
-        "description": description,
-        "source": {
-            "type": "creditcard",
-            "name": data.get('card_name'),
-            "number": data.get('card_number'),
-            "month": data.get('card_month'),
-            "year": data.get('card_year'),
-            "cvc": data.get('card_cvc')
-        }
-    }
-    
-    try:
-        response = requests.post(url, auth=(api_key, ""), json=payload)
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({"message": f"خطأ في الاتصال: {str(e)}"}), 500
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
-
-
- 
-  
+    
