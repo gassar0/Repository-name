@@ -1,3 +1,4 @@
+import requests
 import csv
 import io
 import sqlite3
