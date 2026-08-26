@@ -337,7 +337,7 @@
             }
             products.forEach(p => {
                 let qty = Number(p.quantity) || 0;
-                let isLow = qty <= 5; // حد النقص أقل من أو يساوي 5 قطع
+                let isLow = qty <= 5;
                 let rowClass = isLow ? 'low-stock' : '';
                 
                 let row = `<tr class="${rowClass}">
@@ -415,7 +415,7 @@
             document.getElementById('form-title').innerText = '➕ إضافة منتج جديد';
             document.getElementById('submit-btn').innerText = 'إضافة المنتج للسيرفر';
             document.getElementById('submit-btn').style.backgroundColor = '#2563eb';
-            document.getElementById('cancel-dev').style.display = 'none';
+            document.getElementById('cancel-btn').style.display = 'none'; // تم تصحيحها هنا بنجاح
         }
 
         function deleteProduct(id) {
