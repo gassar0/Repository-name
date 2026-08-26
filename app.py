@@ -233,4 +233,30 @@ def create_payment():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-    
+ @app.route('/create-payment', methods=['POST'])
+def create_payment():
+    try:
+        data = request.json
+        amount = data.get('amount')
+        
+        # رابط ومفتاح ميسر (يجب أن يكونوا باللغة الإنجليزية الصرفة)
+        moyasar_url = "https://api.moyasar.com/v1/payments"
+        api_key = "sk_test_your_key_here"  # حط مفتاحك السري التجريبي هنا
+        
+        payload = {
+            "amount": int(float(amount) * 100), # تحويل المبلغ إلى هللات
+            "currency": "SAR",
+            "description": "Smart Store Order" # الوصف بالإنجليزية لتفادي أي مشاكل ترميز
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        # الاتصال بميسر باستخدام المصادقة الآمنة وبدون أي حروف عربية في الهيدر
+        response = requests.post(moyasar_url, json=payload, headers=headers, auth=(api_key, ""))
+        
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+   
