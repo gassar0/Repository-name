@@ -160,10 +160,10 @@ def create_payment():
         data = request.json or {}
         amount = data.get('amount')
         
-        moyasar_url = "https://api.moyasar.com/v1/payments"
-        # ضع مفتاح ميسر التجريبي السري هنا باللغة الإنجليزية فقط بين علامتي التنصيص
-        api_key = "sk_test_YOUR_ACTUAL_KEY_HERE"
-        
+    
+ moyasar_url = "https://api.moyasar.com/v1/payments"
+api_key = "sk_test_L2TWqryWAP3Mr..."
+       
         payload = {
             "amount": int(float(amount) * 100),
             "currency": "SAR",
