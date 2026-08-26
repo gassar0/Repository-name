@@ -1,9 +1,11 @@
 import csv
 import io
 import sqlite3
-from flask import Flask, jsonify, make_response, request, render_template
+from flask import Flask, jsonify, make_response, request, render_template, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = 'smart_warehouse_secret_key_2026'  # مفتاح سري لإدارة الجلسات بأمان
 
 def init_db():
     conn = sqlite3.connect("store.db")
@@ -66,8 +68,66 @@ def get_users():
         })
     return jsonify(users)
 
+# تسجيل حساب جديد
+@app.route('/api/register', methods=['POST'])
+def register():
+    try:
+        data = request.get_json(silent=True) or {}
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return jsonify({"message": "يرجى إدخال البريد وكلمة المرور"}), 400
+        
+        hashed_password = generate_password_hash(password)
+        
+        conn = sqlite3.connect("store.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_password))
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "تم إنشاء الحساب بنجاح، يمكنك تسجيل الدخول الان"})
+    except sqlite3.IntegrityError:
+        return jsonify({"message": "البريد الإلكتروني مسجل مسبقاً!"}), 400
+    except Exception as e:
+        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
+
+# تسجيل الدخول
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json(silent=True) or {}
+    email = data.get('email')
+    password = data.get('password')
+    
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, email, password FROM users WHERE email = ?", (email,))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if user and check_password_hash(user[2], password):
+        session['user_email'] = user[1]
+        return jsonify({"message": "تم تسجيل الدخول بنجاح", "email": user[1]})
+    
+    return jsonify({"message": "البريد أو كلمة المرور غير صحيحة"}), 401
+
+# حالة تسجيل الدخول الحالية
+@app.route('/api/check-auth', methods=['GET'])
+def check_auth():
+    if 'user_email' in session:
+        return jsonify({"logged_in": True, "email": session['user_email']})
+    return jsonify({"logged_in": False})
+
+# تسجيل الخروج
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.pop('user_email', None)
+    return jsonify({"message": "تم تسجيل الخروج بنجاح"})
+
 @app.route('/api/products', methods=['POST'])
 def add_product():
+    if 'user_email' not in session:
+        return jsonify({"message": "يجب تسجيل الدخول أولاً لإضافة منتجات!"}), 401
     try:
         data = request.get_json(silent=True) or {}
         name = data.get('name')
@@ -89,6 +149,8 @@ def add_product():
 
 @app.route('/api/products/<int:id>', methods=['PUT'])
 def update_product(id):
+    if 'user_email' not in session:
+        return jsonify({"message": "يجب تسجيل الدخول أولاً لتعديل المنتجات!"}), 401
     try:
         data = request.get_json(silent=True) or {}
         name = data.get('name')
@@ -110,6 +172,8 @@ def update_product(id):
 
 @app.route('/api/products/<int:id>', methods=['DELETE'])
 def delete_product(id):
+    if 'user_email' not in session:
+        return jsonify({"message": "يجب تسجيل الدخول أولاً لحذف المنتجات!"}), 401
     try:
         conn = sqlite3.connect("store.db")
         cursor = conn.cursor()
@@ -119,15 +183,6 @@ def delete_product(id):
         return jsonify({"message": "تم حذف المنتج بنجاح"})
     except Exception as e:
         return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
-
-@app.route('/admin/login', methods=['POST'])
-def admin_login():
-    data = request.get_json(silent=True) or {}
-    email = data.get('email')
-    password = data.get('password')
-    if email == "mmmmm_mmmmm319@yahoo.com":
-        return jsonify({"message": "تم تسجيل الدخول بنجاح"})
-    return jsonify({"message": "بيانات غير صالحة"}), 401
 
 @app.route('/api/export-excel', methods=['GET'])
 def export_excel():
