@@ -30,7 +30,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# تشغيل قاعدة البيانات فوراً عند بدء تشغيل التطبيق على السيرفر
+# تشغيل قاعدة البيانات فوراً عند بدء التطبيق
 init_db()
 
 # الصفحة الرئيسية للمتجر ودفع ميسر
@@ -51,7 +51,6 @@ def index():
     <head>
         <meta charset="UTF-8">
         <title>المتجر الذكي - Smart Store</title>
-        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
         <style>
             body { font-family: Tahoma, sans-serif; background: #f4f7f6; padding: 20px; text-align: center; }
             .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
@@ -84,12 +83,19 @@ def index():
         </div>
         <script>
             function pay(amount) {
-                axios.post('/create-payment', { amount: amount })
-                .then(response => {
-                    if(response.data.url) {
-                        window.location.href = response.data.url;
+                fetch('/create-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ amount: amount })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.url) {
+                        window.location.href = data.url;
                     } else {
-                        alert("حدث خطأ في إنشاء الدفع: " + JSON.stringify(response.data));
+                        alert("حدث خطأ في إنشاء الدفع: " + JSON.stringify(data));
                     }
                 })
                 .catch(err => alert("خطأ في الاتصال: " + err));
