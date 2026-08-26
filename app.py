@@ -163,7 +163,8 @@ def create_payment():
         moyasar_url = "https://api.moyasar.com/v1/payments"
         
         # ضع مفتاح ميسر الفعلي الكامل هنا
-        api_key = "sk_live_bc3iz4pmKeJ2d3..." 
+api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
+        
         
         payload = {
             "amount": int(float(amount) * 100),
