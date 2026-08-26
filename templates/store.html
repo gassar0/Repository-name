@@ -30,6 +30,10 @@
             color: white;
             box-sizing: border-box;
         }
+        input:focus {
+            border-color: #38bdf8;
+            outline: none;
+        }
         button {
             background-color: #2563eb;
             border: none;
@@ -94,10 +98,14 @@
         <button class="btn-excel" onclick="window.location.href='/api/export-excel'">📥 تحميل تقرير المنتجات (ملف إكسل)</button>
     </div>
 
-    <!-- قائمة المنتجات -->
+    <!-- قائمة المنتجات مع محرك البحث -->
     <div class="card">
         <h3>📦 قائمة منتجات المتجر العامة</h3>
-        <button class="btn-green" onclick="loadProducts()">🔄 تحديث القائمة</button>
+        
+        <!-- شريط البحث الفوري -->
+        <input type="text" id="search-input" placeholder="🔍 ابحث عن منتج بالاسم أو البائع..." oninput="filterProducts()">
+        
+        <button class="btn-green" onclick="loadProducts()" style="margin-top: 10px;">🔄 تحديث القائمة</button>
         <div style="overflow-x: auto;">
             <table>
                 <thead>
@@ -138,6 +146,7 @@
 
     <script>
         let isLog = false;
+        let allProducts = []; // لتخزين المنتجات للبحث السريع
 
         function checkAuthStatus() {
             fetch('/api/check-auth')
@@ -265,32 +274,47 @@
             fetch('/api/products')
             .then(res => res.json())
             .then(data => {
-                const tbody = document.getElementById('products-table');
-                tbody.innerHTML = '';
-                const colSpan = isLog ? 6 : 5;
-                if (data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="${colSpan}">لا توجد منتجات مسجلة حالياً.</td></tr>`;
-                    return;
-                }
-                data.forEach(p => {
-                    let row = `<tr>
-                        <td>${p.id}</td>
-                        <td>${p.name}</td>
-                        <td>${p.quantity}</td>
-                        <td>${p.price}</td>
-                        <td>${p.vendor || '-'}</td>`;
-                    
-                    if (isLog) {
-                        row += `<td>
-                            <button class="btn-edit" onclick="editProduct(${p.id}, '${p.name}', ${p.quantity}, ${p.price}, '${p.vendor || ''}')">تعديل</button>
-                            <button class="btn-delete" onclick="deleteProduct(${p.id})">حذف</button>
-                        </td>`;
-                    }
-                    row += `</tr>`;
-                    tbody.innerHTML += row;
-                });
+                allProducts = data; // حفظ البيانات للبحث الفوري
+                displayProducts(allProducts);
             })
             .catch(err => console.error('خطأ في جلب المنتجات:', err));
+        }
+
+        function displayProducts(products) {
+            const tbody = document.getElementById('products-table');
+            tbody.innerHTML = '';
+            const colSpan = isLog ? 6 : 5;
+            if (products.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${colSpan}">لا توجد منتجات مطابقة للبحث.</td></tr>`;
+                return;
+            }
+            products.forEach(p => {
+                let row = `<tr>
+                    <td>${p.id}</td>
+                    <td>${p.name}</td>
+                    <td>${p.quantity}</td>
+                    <td>${p.price}</td>
+                    <td>${p.vendor || '-'}</td>`;
+                
+                if (isLog) {
+                    row += `<td>
+                        <button class="btn-edit" onclick="editProduct(${p.id}, '${p.name}', ${p.quantity}, ${p.price}, '${p.vendor || ''}')">تعديل</button>
+                        <button class="btn-delete" onclick="deleteProduct(${p.id})">حذف</button>
+                    </td>`;
+                }
+                row += `</tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function filterProducts() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = allProducts.filter(p => {
+                const nameMatch = p.name.toLowerCase().includes(query);
+                const vendorMatch = p.vendor && p.vendor.toLowerCase().includes(query);
+                return nameMatch || vendorMatch;
+            });
+            displayProducts(filtered);
         }
 
         function editProduct(id, name, quantity, price, vendor) {
