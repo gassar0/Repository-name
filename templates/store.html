@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>متجر المخزن الذكي</title>
+    <title>متجر المخزن الذكي - نظام آمن</title>
     <style>
         body {
             font-family: Tahoma, sans-serif;
@@ -19,7 +19,7 @@
             margin-bottom: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        h2 { color: #38bdf8; text-align: center; }
+        h2, h3 { color: #38bdf8; text-align: center; }
         input, button {
             width: 100%;
             padding: 12px;
@@ -45,19 +45,39 @@
         .btn-edit:hover { background-color: #b45309; }
         .btn-delete { background-color: #dc2626; padding: 6px 12px; width: auto; margin: 2px; }
         .btn-delete:hover { background-color: #b91c1c; }
+        .btn-logout { background-color: #475569; width: auto; padding: 6px 12px; }
         .success { color: #4ade80; text-align: center; }
         .error { color: #f87171; text-align: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #475569; padding: 10px; text-align: center; }
         th { background-color: #334155; }
+        .auth-box { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
 
-    <h2>📦 متجر المخزن الذكي</h2>
+    <h2>📦 متجر المخزن الذكي (محمي)</h2>
 
-    <!-- إضافة / تعديل منتج -->
-    <div class="card">
+    <!-- قسم تسجيل الدخول / حساب جديد -->
+    <div class="card" id="auth-section">
+        <h3>🔐 بوابة الحسابات</h3>
+        <div id="auth-forms">
+            <input type="email" id="auth-email" placeholder="البريد الإلكتروني">
+            <input type="password" id="auth-password" placeholder="كلمة المرور">
+            <div class="auth-box">
+                <button onclick="loginUser()">تسجيل الدخول</button>
+                <button class="btn-green" onclick="registerUser()">إنشاء حساب جديد</button>
+            </div>
+            <p id="auth-msg"></p>
+        </div>
+        <div id="user-info" style="display: none; text-align: center;">
+            <p>مرحباً بك: <span id="logged-email" style="color: #38bdf8; font-weight: bold;"></span></p>
+            <button class="btn-logout" onclick="logoutUser()">تسجيل الخروج</button>
+        </div>
+    </div>
+
+    <!-- إضافة / تعديل منتج (يظهر للمسجلين فقط) -->
+    <div class="card" id="manage-product-card" style="display: none;">
         <h3 id="form-title">➕ إضافة منتج جديد</h3>
         <input type="hidden" id="edit-id">
         <input type="text" id="prod-name" placeholder="اسم المنتج">
@@ -87,7 +107,7 @@
                         <th>الكمية</th>
                         <th>السعر</th>
                         <th>البائع</th>
-                        <th>الإجراءات</th>
+                        <th id="actions-th" style="display: none;">الإجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="products-table">
@@ -97,9 +117,9 @@
         </div>
     </div>
 
-    <!-- قائمة المستخدمين -->
+    <!-- قائمة المستخدمين المسجلين -->
     <div class="card">
-        <h3>👥 قائمة المستخدمين والناس</h3>
+        <h3>👥 قائمة المستخدمين</h3>
         <button onclick="loadUsers()">🔄 تحديث قائمة الناس</button>
         <div style="overflow-x: auto;">
             <table>
@@ -117,6 +137,97 @@
     </div>
 
     <script>
+        let isLog = false;
+
+        function checkAuthStatus() {
+            fetch('/api/check-auth')
+            .then(res => res.json())
+            .then(data => {
+                const manageCard = document.getElementById('manage-product-card');
+                const authForms = document.getElementById('auth-forms');
+                const userInfo = document.getElementById('user-info');
+                const loggedEmail = document.getElementById('logged-email');
+                const actionsTh = document.getElementById('actions-th');
+
+                if (data.logged_in) {
+                    isLog = true;
+                    authForms.style.display = 'none';
+                    userInfo.style.display = 'block';
+                    loggedEmail.innerText = data.email;
+                    manageCard.style.display = 'block';
+                    actionsTh.style.display = 'table-cell';
+                } else {
+                    isLog = false;
+                    authForms.style.display = 'block';
+                    userInfo.style.display = 'none';
+                    manageCard.style.display = 'none';
+                    actionsTh.style.display = 'none';
+                }
+                loadProducts();
+            });
+        }
+
+        function registerUser() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const msg = document.getElementById('auth-msg');
+
+            fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            })
+            .then(async res => {
+                let data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+                return data;
+            })
+            .then(data => {
+                msg.innerText = data.message;
+                msg.className = 'success';
+                loadUsers();
+            })
+            .catch(err => {
+                msg.innerText = err.message;
+                msg.className = 'error';
+            });
+        }
+
+        function loginUser() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const msg = document.getElementById('auth-msg');
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            })
+            .then(async res => {
+                let data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+                return data;
+            })
+            .then(data => {
+                msg.innerText = '';
+                checkAuthStatus();
+            })
+            .catch(err => {
+                msg.innerText = err.message;
+                msg.className = 'error';
+            });
+        }
+
+        function logoutUser() {
+            fetch('/api/logout', { method: 'POST' })
+            .then(() => {
+                document.getElementById('auth-email').value = '';
+                document.getElementById('auth-password').value = '';
+                document.getElementById('auth-msg').innerText = '';
+                checkAuthStatus();
+            });
+        }
+
         function saveProduct() {
             const editId = document.getElementById('edit-id').value;
             const name = document.getElementById('prod-name').value;
@@ -156,22 +267,27 @@
             .then(data => {
                 const tbody = document.getElementById('products-table');
                 tbody.innerHTML = '';
+                const colSpan = isLog ? 6 : 5;
                 if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6">لا توجد منتجات مسجلة حالياً.</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="${colSpan}">لا توجد منتجات مسجلة حالياً.</td></tr>`;
                     return;
                 }
                 data.forEach(p => {
-                    tbody.innerHTML += `<tr>
+                    let row = `<tr>
                         <td>${p.id}</td>
                         <td>${p.name}</td>
                         <td>${p.quantity}</td>
                         <td>${p.price}</td>
-                        <td>${p.vendor || '-'}</td>
-                        <td>
+                        <td>${p.vendor || '-'}</td>`;
+                    
+                    if (isLog) {
+                        row += `<td>
                             <button class="btn-edit" onclick="editProduct(${p.id}, '${p.name}', ${p.quantity}, ${p.price}, '${p.vendor || ''}')">تعديل</button>
                             <button class="btn-delete" onclick="deleteProduct(${p.id})">حذف</button>
-                        </td>
-                    </tr>`;
+                        </td>`;
+                    }
+                    row += `</tr>`;
+                    tbody.innerHTML += row;
                 });
             })
             .catch(err => console.error('خطأ في جلب المنتجات:', err));
@@ -243,11 +359,9 @@
         }
 
         window.onload = function() {
-            loadProducts();
+            checkAuthStatus();
             loadUsers();
         };
     </script>
 </body>
 </html>
-
-
