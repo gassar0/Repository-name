@@ -20,6 +20,24 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         h2, h3 { color: #38bdf8; text-align: center; }
+        
+        /* تصميم لوحة الإحصائيات */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .stat-box {
+            background-color: #334155;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-top: 4px solid #38bdf8;
+        }
+        .stat-box h4 { margin: 0 0 5px 0; color: #94a3b8; font-size: 14px; }
+        .stat-box p { margin: 0; font-size: 18px; font-weight: bold; color: #4ade80; }
+
         input, button {
             width: 100%;
             padding: 12px;
@@ -60,7 +78,7 @@
 </head>
 <body>
 
-    <h2>📦 متجر المخزن الذكي (محمي)</h2>
+    <h2>📦 متجر المخزن الذكي (نظام آمن)</h2>
 
     <!-- قسم تسجيل الدخول / حساب جديد -->
     <div class="card" id="auth-section">
@@ -98,8 +116,25 @@
         <button class="btn-excel" onclick="window.location.href='/api/export-excel'">📥 تحميل تقرير المنتجات (ملف إكسل)</button>
     </div>
 
-    <!-- قائمة المنتجات مع محرك البحث -->
+    <!-- قائمة المنتجات وإحصائيات المخزن -->
     <div class="card">
+        <h3>📊 لوحة إحصائيات المخزن</h3>
+        <!-- مربعات الإحصائيات -->
+        <div class="stats-container">
+            <div class="stat-box">
+                <h4>إجمالي الأصناف</h4>
+                <p id="stat-count">0</p>
+            </div>
+            <div class="stat-box">
+                <h4>إجمالي القطع</h4>
+                <p id="stat-qty">0</p>
+            </div>
+            <div class="stat-box">
+                <h4>قيمة المخزن</h4>
+                <p id="stat-value">0 ر.س</p>
+            </div>
+        </div>
+
         <h3>📦 قائمة منتجات المتجر العامة</h3>
         
         <!-- شريط البحث الفوري -->
@@ -146,7 +181,7 @@
 
     <script>
         let isLog = false;
-        let allProducts = []; // لتخزين المنتجات للبحث السريع
+        let allProducts = [];
 
         function checkAuthStatus() {
             fetch('/api/check-auth')
@@ -274,8 +309,9 @@
             fetch('/api/products')
             .then(res => res.json())
             .then(data => {
-                allProducts = data; // حفظ البيانات للبحث الفوري
+                allProducts = data;
                 displayProducts(allProducts);
+                updateStats(allProducts);
             })
             .catch(err => console.error('خطأ في جلب المنتجات:', err));
         }
@@ -285,7 +321,7 @@
             tbody.innerHTML = '';
             const colSpan = isLog ? 6 : 5;
             if (products.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${colSpan}">لا توجد منتجات مطابقة للبحث.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${colSpan}">لا توجد منتجات مطابقة.</td></tr>`;
                 return;
             }
             products.forEach(p => {
@@ -307,6 +343,23 @@
             });
         }
 
+        function updateStats(products) {
+            let totalCount = products.length;
+            let totalQty = 0;
+            let totalValue = 0;
+
+            products.forEach(p => {
+                let qty = Number(p.quantity) || 0;
+                let price = Number(p.price) || 0;
+                totalQty += qty;
+                totalValue += (qty * price);
+            });
+
+            document.getElementById('stat-count').innerText = totalCount;
+            document.getElementById('stat-qty').innerText = totalQty;
+            document.getElementById('stat-value').innerText = totalValue.toLocaleString() + ' ر.س';
+        }
+
         function filterProducts() {
             const query = document.getElementById('search-input').value.toLowerCase();
             const filtered = allProducts.filter(p => {
@@ -315,6 +368,7 @@
                 return nameMatch || vendorMatch;
             });
             displayProducts(filtered);
+            updateStats(filtered); // تحديث الإحصائيات بناءً على النتائج المفلترة أيضاً!
         }
 
         function editProduct(id, name, quantity, price, vendor) {
