@@ -161,7 +161,24 @@ def create_payment():
         amount = data.get('amount')
         
         moyasar_url = "https://api.moyasar.com/v1/payments"
+        api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
         
+        payload = {
+            "amount": int(float(amount) * 100),
+            "currency": "SAR",
+            "description": "Smart Store Order"
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(moyasar_url, json=payload, headers=headers, auth=(api_key, ""))
+        return jsonify(response.json())
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
         # ضع مفتاح ميسر الفعلي الكامل هنا
 api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
         
