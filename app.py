@@ -231,8 +231,7 @@ def create_payment():
     except Exception as e:
         return jsonify({"message": f"خطأ في الاتصال: {str(e)}"}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+
  @app.route('/create-payment', methods=['POST'])
 def create_payment():
     try:
@@ -258,5 +257,8 @@ def create_payment():
         
         return jsonify(response.json())
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-   
+        return jsonify({"status": "error", "message": str(e)}), 500   
+        
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
