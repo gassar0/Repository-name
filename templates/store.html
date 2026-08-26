@@ -315,7 +315,7 @@
                 html += `<tr>
                     <td>${item.name}</td>
                     <td>${item.qty}</td>
-                    <td>${item.price * item.qty} ر.س</td>
+                    <td>${item.price * item.qty} ر.س</td>نه
                     <td><button onclick="removeFromCart(${index})" style="background-color: #dc2626; padding: 4px 8px; width: auto;">حذف</button></td>
                 </tr>`;
             });
@@ -502,6 +502,42 @@
             checkAuthStatus();
         };
     </script>
+<script>
+async function submitPayment() {
+    const totalText = document.getElementById('cart-total').innerText;
+    const totalAmount = parseFloat(totalText) || 150;
+    const amountInHalalas = Math.round(totalAmount * 100);
+
+    const paymentData = {
+        amount: amountInHalalas,
+        card_name: "Test User",
+        card_number: "4000000000000000",
+        card_month: "12",
+        card_year: "28",
+        card_cvc: "123"
+    };
+
+    try {
+        const response = await fetch('/create-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentData)
+        });
+
+        const result = await response.json();
+
+        if (result.status === "paid" || result.status === "initiated") {
+            alert("🎉 تمت عملية الدفع بنجاح!");
+            window.location.reload();
+        } else {
+            alert("❌ فشلت عملية الدفع: " + (result.message || "تأكد من بيانات البطاقة"));
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("حدث خطأ في الاتصال بالبوابة.");
+    }
+}
+</script>
 </body>
 </html>
 
