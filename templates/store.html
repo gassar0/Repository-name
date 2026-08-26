@@ -21,22 +21,24 @@
         }
         h2, h3 { color: #38bdf8; text-align: center; }
         
-        /* تصميم لوحة الإحصائيات */
+        /* تصميم لوحة الإحصائيات (4 مربعات) */
         .stats-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
             margin-bottom: 15px;
         }
         .stat-box {
             background-color: #334155;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
             text-align: center;
             border-top: 4px solid #38bdf8;
         }
-        .stat-box h4 { margin: 0 0 5px 0; color: #94a3b8; font-size: 14px; }
+        .stat-box.warning { border-top-color: #f87171; }
+        .stat-box h4 { margin: 0 0 5px 0; color: #94a3b8; font-size: 13px; }
         .stat-box p { margin: 0; font-size: 18px; font-weight: bold; color: #4ade80; }
+        .stat-box.warning p { color: #f87171; }
 
         input, button {
             width: 100%;
@@ -74,6 +76,11 @@
         th, td { border: 1px solid #475569; padding: 10px; text-align: center; }
         th { background-color: #334155; }
         .auth-box { display: flex; gap: 10px; }
+        
+        /* تلوين صفوف النواقص */
+        .low-stock {
+            background-color: rgba(239, 68, 68, 0.15);
+        }
     </style>
 </head>
 <body>
@@ -116,10 +123,10 @@
         <button class="btn-excel" onclick="window.location.href='/api/export-excel'">📥 تحميل تقرير المنتجات (ملف إكسل)</button>
     </div>
 
-    <!-- قائمة المنتجات وإحصائيات المخزن -->
+    <!-- قائمة المنتجات وإحصائيات المخزن الذكية -->
     <div class="card">
         <h3>📊 لوحة إحصائيات المخزن</h3>
-        <!-- مربعات الإحصائيات -->
+        <!-- مربعات الإحصائيات الأربعة -->
         <div class="stats-container">
             <div class="stat-box">
                 <h4>إجمالي الأصناف</h4>
@@ -132,6 +139,10 @@
             <div class="stat-box">
                 <h4>قيمة المخزن</h4>
                 <p id="stat-value">0 ر.س</p>
+            </div>
+            <div class="stat-box warning">
+                <h4>نواقص المخزن ⚠️</h4>
+                <p id="stat-low">0</p>
             </div>
         </div>
 
@@ -325,16 +336,20 @@
                 return;
             }
             products.forEach(p => {
-                let row = `<tr>
+                let qty = Number(p.quantity) || 0;
+                let isLow = qty <= 5; // حد النقص أقل من أو يساوي 5 قطع
+                let rowClass = isLow ? 'low-stock' : '';
+                
+                let row = `<tr class="${rowClass}">
                     <td>${p.id}</td>
                     <td>${p.name}</td>
-                    <td>${p.quantity}</td>
+                    <td>${qty} ${isLow ? '⚠️' : ''}</td>
                     <td>${p.price}</td>
                     <td>${p.vendor || '-'}</td>`;
                 
                 if (isLog) {
                     row += `<td>
-                        <button class="btn-edit" onclick="editProduct(${p.id}, '${p.name}', ${p.quantity}, ${p.price}, '${p.vendor || ''}')">تعديل</button>
+                        <button class="btn-edit" onclick="editProduct(${p.id}, '${p.name}', ${qty}, ${p.price}, '${p.vendor || ''}')">تعديل</button>
                         <button class="btn-delete" onclick="deleteProduct(${p.id})">حذف</button>
                     </td>`;
                 }
@@ -347,17 +362,22 @@
             let totalCount = products.length;
             let totalQty = 0;
             let totalValue = 0;
+            let lowStockCount = 0;
 
             products.forEach(p => {
                 let qty = Number(p.quantity) || 0;
                 let price = Number(p.price) || 0;
                 totalQty += qty;
                 totalValue += (qty * price);
+                if (qty <= 5) {
+                    lowStockCount++;
+                }
             });
 
             document.getElementById('stat-count').innerText = totalCount;
             document.getElementById('stat-qty').innerText = totalQty;
             document.getElementById('stat-value').innerText = totalValue.toLocaleString() + ' ر.س';
+            document.getElementById('stat-low').innerText = lowStockCount;
         }
 
         function filterProducts() {
@@ -368,7 +388,7 @@
                 return nameMatch || vendorMatch;
             });
             displayProducts(filtered);
-            updateStats(filtered); // تحديث الإحصائيات بناءً على النتائج المفلترة أيضاً!
+            updateStats(filtered);
         }
 
         function editProduct(id, name, quantity, price, vendor) {
@@ -395,7 +415,7 @@
             document.getElementById('form-title').innerText = '➕ إضافة منتج جديد';
             document.getElementById('submit-btn').innerText = 'إضافة المنتج للسيرفر';
             document.getElementById('submit-btn').style.backgroundColor = '#2563eb';
-            document.getElementById('cancel-btn').style.display = 'none';
+            document.getElementById('cancel-dev').style.display = 'none';
         }
 
         function deleteProduct(id) {
