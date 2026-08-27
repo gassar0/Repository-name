@@ -1,10 +1,10 @@
 import os
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
+from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify, make_response
 import requests
 
 app = Flask(__name__)
-app.secret_key = 'smart_store_secret_key'
+app.secret_key = 'smart_store_secret_key_12345'
 
 def init_db():
     try:
@@ -33,6 +33,229 @@ def init_db():
 
 init_db()
 
+INDEX_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المتجر الذكي - Smart Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/" class="text-2xl font-bold">🛒 المتجر الذكي</a>
+            <div class="flex items-center gap-4">
+                <a href="/cart" class="bg-blue-700 px-4 py-2 rounded-lg hover:bg-blue-800 transition">السلة ({{ cart_count }})</a>
+                <a href="/export-csv" class="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 transition">تصدير CSV</a>
+                {% if session.get('username') %}
+                    <span class="font-semibold">أهلاً، {{ session['username'] }}</span>
+                    <a href="/logout" class="bg-red-500 px-3 py-1 rounded hover:bg-red-600 transition">خروج</a>
+                {% else %}
+                    <a href="/login" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition">دخول</a>
+                    <a href="/register" class="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition">حساب جديد</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Add Product Form -->
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold mb-4 text-gray-800">➕ إضافة منتج جديد</h2>
+                <form action="/add-product" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 mb-1">اسم المنتج</label>
+                        <input type="text" name="name" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">الكمية</label>
+                        <input type="number" name="quantity" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">السعر (ر.س)</label>
+                        <input type="number" step="0.01" name="price" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">البائع</label>
+                        <input type="text" name="vendor" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">إضافة المنتج</button>
+                </form>
+            </div>
+
+            <!-- Products List -->
+            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold mb-4 text-gray-800">📦 المنتجات المتوفرة</h2>
+                {% if products %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {% for product in products %}
+                            <div class="border rounded-lg p-4 flex flex-col justify-between bg-gray-50 hover:shadow-md transition">
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-800">{{ product[1] }}</h3>
+                                    <p class="text-gray-600 text-sm">البائع: {{ product[4] or 'غير متوفر' }}</p>
+                                    <p class="text-blue-600 font-bold mt-2 text-xl">{{ product[3] }} ر.س</p>
+                                    <p class="text-gray-500 text-xs mt-1">الكمية المتاحة: {{ product[2] }}</p>
+                                </div>
+                                <a href="/add-to-cart/{{ product[0] }}" class="mt-4 block text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">أضف للسلة</a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-center py-8">لا توجد منتجات مضافة حتى الآن. ابدأ بإضافة منتجك الأول!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+        <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">تسجيل الدخول</h2>
+        <form method="POST" class="space-y-4">
+            <div>
+                <label class="block text-gray-700 mb-1">اسم المستخدم</label>
+                <input type="text" name="username" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 mb-1">كلمة المرور</label>
+                <input type="password" name="password" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">دخول</button>
+        </form>
+        <p class="text-center mt-4 text-gray-600">ليس لديك حساب؟ <a href="/register" class="text-blue-600 font-bold hover:underline">سجل الآن</a></p>
+        <p class="text-center mt-2"><a href="/" class="text-gray-500 text-sm hover:underline">العودة للرئيسية</a></p>
+    </div>
+</body>
+</html>
+'''
+
+REGISTER_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء حساب جديد</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+        <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">إنشاء حساب جديد</h2>
+        <form method="POST" class="space-y-4">
+            <div>
+                <label class="block text-gray-700 mb-1">اسم المستخدم</label>
+                <input type="text" name="username" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 mb-1">كلمة المرور</label>
+                <input type="password" name="password" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">تسجيل</button>
+        </form>
+        <p class="text-center mt-4 text-gray-600">لديك حساب بالفعل؟ <a href="/login" class="text-blue-600 font-bold hover:underline">سجل دخولك</a></p>
+        <p class="text-center mt-2"><a href="/" class="text-gray-500 text-sm hover:underline">العودة للرئيسية</a></p>
+    </div>
+</body>
+</html>
+'''
+
+CART_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سلة المشتريات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/" class="text-2xl font-bold">🛒 المتجر الذكي</a>
+            <a href="/" class="bg-blue-700 px-4 py-2 rounded-lg hover:bg-blue-800 transition">العودة للمتجر</a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">🛍️ سلة المشتريات</h1>
+        {% if cart_items %}
+            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 border-b">
+                            <th class="p-4">المنتج</th>
+                            <th class="p-4">السعر</th>
+                            <th class="p-4">الكمية</th>
+                            <th class="p-4">الإجمالي</th>
+                            <th class="p-4">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in cart_items %}
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="p-4 font-semibold">{{ item.name }}</td>
+                                <td class="p-4">{{ item.price }} ر.س</td>
+                                <td class="p-4">{{ item.quantity }}</td>
+                                <td class="p-4 font-bold text-blue-600">{{ item.total }} ر.س</td>
+                                <td class="p-4">
+                                    <a href="/remove-from-cart/{{ item.id }}" class="text-red-500 hover:text-red-700 font-bold">حذف</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-md flex justify-between items-center">
+                <div class="text-xl font-bold text-gray-800">
+                    المجموع الكلي: <span class="text-blue-600">{{ total_price }} ر.س</span>
+                </div>
+                <button onclick="payWithMoyasar({{ total_price }})" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-bold text-lg">إتمام الدفع عبر ميسر</button>
+            </div>
+        {% else %}
+            <div class="bg-white p-12 rounded-xl shadow-md text-center">
+                <p class="text-gray-500 text-lg mb-4">سلة المشتريات فارغة حالياً.</p>
+                <a href="/" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-bold">تصفح المنتجات</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function payWithMoyasar(amount) {
+            fetch('/create-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: amount })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.source && data.source.transaction_url) {
+                    window.location.href = data.source.transaction_url;
+                } else {
+                    alert('خطأ في إنشاء عملية الدفع: ' + JSON.stringify(data));
+                }
+            })
+            .catch(err => alert('حدث خطأ الاتصال: ' + err));
+        }
+    </script>
+</body>
+</html>
+'''
+
 @app.route('/')
 def index():
     try:
@@ -47,7 +270,7 @@ def index():
             cart = {}
         cart_count = sum(int(v) for v in cart.values() if str(v).isdigit())
         
-        return render_template('index.html', products=products, cart_count=cart_count)
+        return render_template_string(INDEX_TEMPLATE, products=products, cart_count=cart_count)
     except Exception as e:
         return f"حدث خطأ في الصفحة الرئيسية: {str(e)}"
 
@@ -65,7 +288,7 @@ def register():
             return redirect(url_for('login'))
         except sqlite3.IntegrityError:
             return "اسم المستخدم موجود مسبقاً!"
-    return render_template('register.html')
+    return render_template_string(REGISTER_TEMPLATE)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -82,7 +305,7 @@ def login():
             return redirect(url_for('index'))
         else:
             return "خطأ في اسم المستخدم أو كلمة المرور!"
-    return render_template('login.html')
+    return render_template_string(LOGIN_TEMPLATE)
 
 @app.route('/logout')
 def logout():
@@ -151,7 +374,7 @@ def view_cart():
                 })
                 
         conn.close()
-        return render_template('cart.html', cart_items=cart_items, total_price=total_price)
+        return render_template_string(CART_TEMPLATE, cart_items=cart_items, total_price=total_price)
     except Exception as e:
         return f"خطأ في عرض السلة: {str(e)}"
 
