@@ -3,542 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>متجرنا الذكي - تسوق الآن</title>
+    <title>المتجر الإلكتروني الذكي</title>
     <style>
-        body {
-            font-family: Tahoma, sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            padding: 20px;
-            margin: 0;
-        }
-        .card {
-            background-color: #1e293b;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        h2, h3 { color: #38bdf8; text-align: center; }
-        
-        /* الهيدر وسلة التسوق العلوية */
-        .store-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #1e293b;
-            padding: 15px 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            border-bottom: 3px solid #38bdf8;
-        }
-        .cart-btn {
-            background-color: #059669;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 15px;
-        }
-        .cart-btn:hover { background-color: #047857; }
-
-        /* شبكة عرض المنتجات للعملاء */
-        .products-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        .product-card {
-            background-color: #334155;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            border: 1px solid #475569;
-        }
-        .product-card h4 { margin: 10px 0; color: #f8fafc; font-size: 18px; }
-        .product-card p { color: #4ade80; font-weight: bold; font-size: 16px; margin: 5px 0; }
-        .product-card span { color: #94a3b8; font-size: 13px; display: block; margin-bottom: 10px; }
-        
-        button {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-        .btn-buy { background-color: #2563eb; color: white; }
-        .btn-buy:hover { background-color: #1d4ed8; }
-        .btn-buy:disabled { background-color: #64748b; cursor: not-allowed; }
-
-        /* سلة المشتريات (Modal / Section) */
-        .cart-section {
-            background-color: #1e293b;
-            border: 2px dashed #38bdf8;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        /* تصميم لوحة الإحصائيات والإدارة القديمة */
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 12px;
-            margin-bottom: 15px;
-        }
-        .stat-box {
-            background-color: #334155;
-            padding: 12px;
-            border-radius: 8px;
-            text-align: center;
-            border-top: 4px solid #38bdf8;
-        }
-        .stat-box.warning { border-top-color: #f87171; }
-        .stat-box h4 { margin: 0 0 5px 0; color: #94a3b8; font-size: 13px; }
-        .stat-box p { margin: 0; font-size: 18px; font-weight: bold; color: #4ade80; }
-        .stat-box.warning p { color: #f87171; }
-
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 8px 0;
-            border-radius: 8px;
-            border: 1px solid #475569;
-            background-color: #0f172a;
-            color: white;
-            box-sizing: border-box;
-        }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #475569; padding: 10px; text-align: center; }
-        th { background-color: #334155; }
-        .success { color: #4ade80; text-align: center; }
-        .error { color: #f87171; text-align: center; }
-        .auth-box { display: flex; gap: 10px; }
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; padding: 20px; margin: 0; }
+        .container { max-width: 900px; margin: auto; }
+        .card { background: #1e293b; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h1, h2, h3 { text-align: center; color: #38bdf8; }
+        .btn { background-color: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
+        .btn:hover { background-color: #059669; }
+        .btn-primary { background-color: #2563eb; }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        input, select { width: 100%; padding: 10px; margin: 8px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #334155; }
+        th { background-color: #0284c7; color: white; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     </style>
 </head>
 <body>
-
-    <!-- هيدر المتجر -->
-    <div class="store-header">
-        <h2>🛍️ المتجر الإلكتروني الذكي</h2>
-        <button class="cart-btn" onclick="toggleCart()">🛒 سلة المشتريات (<span id="cart-count">0</span>)</button>
-    </div>
-
-    <!-- قسم سلة المشتريات -->
-    <div class="cart-section" id="cart-section">
-        <h3>🛒 سلة طلباتك</h3>
-        <div id="cart-items">السلة فارغة حالياً.</div>
-        <div style="margin-top: 15px; text-align: left; font-size: 18px; font-weight: bold;">
-            الإجمالي الكلي: <span id="cart-total" style="color: #4ade80;">0 ر.س</span>
+    <div class="container">
+        <!-- هيدر المتجر -->
+        <div class="card top-bar">
+            <h2>🛍️ المتجر الإلكتروني الذكي</h2>
+            <a href="{{ url_for('view_cart') }}" class="btn">🛒 سلة المشتريات ({{ cart_count }})</a>
         </div>
-        <button class="cart-btn" style="width: 100%; margin-top: 10px; background-color: #2563eb;" onclick="checkout()">✅ إتمام الشراء الآن</button>
- <button class="cart-btn" style="width: 100%; margin-top: 10px; background-color: #28a745;" onclick="submitPayment()">💳 إتمام الدفع الآمن عبر ميسر</button>
-    </div>
 
-    <!-- قسم عرض المنتجات للعملاء للبيع -->
-    <div class="card">
-        <h3>🔥 المنتجات المتاحة للشراء</h3>
-        <input type="text" id="store-search" placeholder="🔍 ابحث عن منتج للشراء..." oninput="filterStoreProducts()">
-        <div class="products-grid" id="customer-products-grid">
-            <!-- يتم تعبئتها برمجياً -->
-        </div>
-    </div>
-
-    <!-- بوابة الحسابات والإدارة -->
-    <div class="card" id="auth-section">
-        <h3>🔐 بوابة إدارة المتجر (للمسؤولين)</h3>
-        <div id="auth-forms">
-            <input type="email" id="auth-email" placeholder="البريد الإلكتروني">
-            <input type="password" id="auth-password" placeholder="كلمة المرور">
-            <div class="auth-box">
-                <button onclick="loginUser()" style="background-color: #2563eb;">تسجيل الدخول</button>
-                <button onclick="registerUser()" style="background-color: #059669;">إنشاء حساب</button>
-            </div>
-            <p id="auth-msg"></p>
-        </div>
-        <div id="user-info" style="display: none; text-align: center;">
-            <p>مرحباً بك يا مسؤول: <span id="logged-email" style="color: #38bdf8; font-weight: bold;"></span></p>
-            <button onclick="logoutUser()" style="background-color: #475569; width: auto; padding: 6px 12px;">تسجيل الخروج</button>
-        </div>
-    </div>
-
-    <!-- إضافة منتج جديد (للمسؤولين فقط) -->
-    <div class="card" id="manage-product-card" style="display: none;">
-        <h3 id="form-title">➕ إضافة منتج جديد للمخزن</h3>
-        <input type="hidden" id="edit-id">
-        <input type="text" id="prod-name" placeholder="اسم المنتج">
-        <input type="number" id="prod-quantity" placeholder="الكمية">
-        <input type="number" step="0.01" id="prod-price" placeholder="السعر (ر.س)">
-        <input type="text" id="prod-vendor" placeholder="اسم البائع (اختياري)">
-        <button id="submit-btn" onclick="saveProduct()" style="background-color: #2563eb;">إضافة المنتج</button>
-        <button id="cancel-btn" style="background-color: #475569; display: none;" onclick="resetForm()">إلغاء</button>
-        <p id="add-msg"></p>
-    </div>
-
-    <!-- لوحة إحصائيات المخزن -->
-    <div class="card">
-        <h3>📊 لوحة إحصائيات المخزن</h3>
-        <div class="stats-container">
-            <div class="stat-box"><h4>إجمالي الأصناف</h4><p id="stat-count">0</p></div>
-            <div class="stat-box"><h4>إجمالي القطع</h4><p id="stat-qty">0</p></div>
-            <div class="stat-box"><h4>قيمة المخزن</h4><p id="stat-value">0 ر.س</p></div>
-            <div class="stat-box warning"><h4>نواقص المخزن ⚠️</h4><p id="stat-low">0</p></div>
-        </div>
-        
-        <h3>📦 جدول إدارة المخزن الداخلي</h3>
-        <button onclick="loadProducts()" style="background-color: #059669; width: auto; padding: 8px 15px; margin-bottom: 10px;">🔄 تحديث القائمة</button>
-        <div style="overflow-x: auto;">
+        <!-- المنتجات المتاحة للشراء -->
+        <div class="card">
+            <h2>🔥 المنتجات المتاحة للشراء</h2>
+            <input type="text" id="searchBox" placeholder="🔍 ابحث عن منتج بالاسم..." onkeyup="filterProducts()">
+            
+            {% if products %}
             <table>
                 <thead>
                     <tr>
-                        <th>الرقم</th>
                         <th>اسم المنتج</th>
-                        <th>الكمية</th>
+                        <th>الكمية المتاحة</th>
                         <th>السعر</th>
                         <th>البائع</th>
-                        <th id="actions-th" style="display: none;">الإجراءات</th>
+                        <th>إجراء</th>
                     </tr>
                 </thead>
-                <tbody id="products-table">
-                    <tr><td colspan="6">جاري التحميل...</td></tr>
+                <tbody id="productsTable">
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product[1] }}</td>
+                        <td>{{ product[2] }}</td>
+                        <td>{{ product[3] }} ر.س</td>
+                        <td>{{ product[4] }}</td>
+                        <td>
+                            <a href="{{ url_for('add_to_cart', product_id=product[0]) }}" class="btn" style="padding: 6px 12px; font-size: 14px;">أضف للسلة 🛒</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p style="text-align: center; color: #94a3b8; margin-top: 20px;">لا توجد منتجات متاحة حالياً.</p>
+            {% endif %}
+        </div>
+
+        <!-- بوابة إدارة المتجر (للمسؤولين) -->
+        <div class="card">
+            <h2>🔒 بوابة إدارة المتجر (للمسؤولين)</h2>
+            {% if session.get('username') %}
+                <p style="text-align: center; color: #10b981;">مرحباً بك، <b>{{ session['username'] }}</b> | <a href="{{ url_for('logout') }}" style="color: #ef4444; text-decoration: none;">تسجيل الخروج</a></p>
+                
+                <h3 style="color: #38bdf8; margin-top: 20px; text-align: right;">📦 إضافة منتج جديد</h3>
+                <form action="{{ url_for('add_product') }}" method="POST">
+                    <input type="text" name="name" placeholder="اسم المنتج" required>
+                    <input type="number" name="quantity" placeholder="الكمية" required>
+                    <input type="number" step="0.01" name="price" placeholder="السعر (ر.س)" required>
+                    <input type="text" name="vendor" placeholder="اسم البائع" required>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">إضافة المنتج للمخزن</button>
+                </form>
+                
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="{{ url_for('export_csv') }}" class="btn" style="background-color: #d97706;">📥 تصدير تقرير CSV</a>
+                </div>
+            {% else %}
+                <div style="display: flex; gap: 10px;">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary" style="flex: 1;">تسجيل الدخول</a>
+                    <a href="{{ url_for('register') }}" class="btn" style="flex: 1; background-color: #0284c7;">إنشاء حساب جديد</a>
+                </div>
+            {% endif %}
         </div>
     </div>
 
     <script>
-        let isLog = false;
-        let allProducts = [];
-        let cart = [];
-
-        function checkAuthStatus() {
-            fetch('/api/check-auth')
-            .then(res => res.json())
-            .then(data => {
-                const manageCard = document.getElementById('manage-product-card');
-                const authForms = document.getElementById('auth-forms');
-                const userInfo = document.getElementById('user-info');
-                const loggedEmail = document.getElementById('logged-email');
-                const actionsTh = document.getElementById('actions-th');
-
-                if (data.logged_in) {
-                    isLog = true;
-                    authForms.style.display = 'none';
-                    userInfo.style.display = 'block';
-                    loggedEmail.innerText = data.email;
-                    manageCard.style.display = 'block';
-                    actionsTh.style.display = 'table-cell';
-                } else {
-                    isLog = false;
-                    authForms.style.display = 'block';
-                    userInfo.style.display = 'none';
-                    manageCard.style.display = 'none';
-                    actionsTh.style.display = 'none';
-                }
-                loadProducts();
+        function filterProducts() {
+            let input = document.getElementById('searchBox').value.toLowerCase();
+            let rows = document.querySelectorAll('#productsTable tr');
+            rows.forEach(row => {
+                let name = row.cells[0].textContent.toLowerCase();
+                row.style.display = name.includes(input) ? '' : 'none';
             });
         }
-
-        function loadProducts() {
-            fetch('/api/products')
-            .then(res => res.json())
-            .then(data => {
-                allProducts = data;
-                displayCustomerProducts(allProducts);
-                displayAdminTable(allProducts);
-                updateStats(allProducts);
-            });
-        }
-
-        function displayCustomerProducts(products) {
-            const grid = document.getElementById('customer-products-grid');
-            grid.innerHTML = '';
-            if (products.length === 0) {
-                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #94a3b8;">لا توجد منتجات متاحة حالياً للبيع.</p>';
-                return;
-            }
-            products.forEach(p => {
-                let qty = Number(p.quantity) || 0;
-                let isOut = qty <= 0;
-                grid.innerHTML += `
-                    <div class="product-card">
-                        <h4>${p.name}</h4>
-                        <p>${p.price} ر.س</p>
-                        <span>المتوفر: ${qty} قطع | البائع: ${p.vendor || 'متجرنا'}</span>
-                        <button class="btn-buy" ${isOut ? 'disabled' : ''} onclick="addToCart(${p.id}, '${p.name}', ${p.price}, ${qty})">
-                            ${isOut ? 'نفدت الكمية ❌' : '🛒 أضف للسلة'}
-                        </button>
-                    </div>
-                `;
-            });
-        }
-
-        function addToCart(id, name, price, maxQty) {
-            let existing = cart.find(item => item.id === id);
-            if (existing) {
-                if (existing.qty < maxQty) {
-                    existing.qty++;
-                } else {
-                    alert('عذراً، لقد وصلت للحد الأقصى المتوفر من هذا المنتج بالمخزن!');
-                    return;
-                }
-            } else {
-                cart.push({ id, name, price, qty: 1, maxQty });
-            }
-            updateCartUI();
-            alert('تمت إضافة المنتج إلى السلة بنجاح! 🛍️');
-        }
-
-        function updateCartUI() {
-            const countEl = document.getElementById('cart-count');
-            const itemsEl = document.getElementById('cart-items');
-            const totalEl = document.getElementById('cart-total');
-            
-            let totalCount = cart.reduce((sum, item) => sum + item.qty, 0);
-            let totalPrice = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            
-            countEl.innerText = totalCount;
-            totalEl.innerText = totalPrice.toLocaleString() + ' ر.س';
-
-            if (cart.length === 0) {
-                itemsEl.innerHTML = 'السلة فارغة حالياً.';
-                return;
-            }
-
-            let html = '<table style="width:100%; color: white;"><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>حذف</th></tr>';
-            cart.forEach((item, index) => {
-                html += `<tr>
-                    <td>${item.name}</td>
-                    <td>${item.qty}</td>
-                    <td>${item.price * item.qty} ر.س</td>نه
-                    <td><button onclick="removeFromCart(${index})" style="background-color: #dc2626; padding: 4px 8px; width: auto;">حذف</button></td>
-                </tr>`;
-            });
-            html += '</table>';
-            itemsEl.innerHTML = html;
-        }
-
-        function removeFromCart(index) {
-            cart.splice(index, 1);
-            updateCartUI();
-        }
-
-        function toggleCart() {
-            const section = document.getElementById('cart-section');
-            section.style.display = section.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function checkout() {
-            if (cart.length === 0) {
-                alert('سلتك فارغة!');
-                return;
-            }
-            if (confirm('هل أنت متأكد من إتمام عملية الشراء؟')) {
-                // محاكاة خصم الكميات وتحديث السيرفر لكل منتج تم شراؤه
-                let promises = cart.map(item => {
-                    let newQty = item.maxQty - item.qty;
-                    return fetch(`/api/products/${item.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: item.name, quantity: newQty, price: item.price })
-                    });
-                });
-
-                Promise.all(promises).then(() => {
-                    alert('🎉 تم إتمام الطلب بنجاح! شكراً لتسوقك معنا.');
-                    cart = [];
-                    updateCartUI();
-                    toggleCart();
-                    loadProducts();
-                }).catch(err => alert('حدث خطأ أثناء إتمام الطلب.'));
-            }
-        }
-
-        function displayAdminTable(products) {
-            const tbody = document.getElementById('products-table');
-            tbody.innerHTML = '';
-            const colSpan = isLog ? 6 : 5;
-            if (products.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${colSpan}">لا توجد منتجات مسجلة.</td></tr>`;
-                return;
-            }
-            products.forEach(p => {
-                let qty = Number(p.quantity) || 0;
-                let isLow = qty <= 5;
-                let row = `<tr class="${isLow ? 'low-stock' : ''}">
-                    <td>${p.id}</td>
-                    <td>${p.name}</td>
-                    <td>${qty} ${isLow ? '⚠️' : ''}</td>
-                    <td>${p.price}</td>
-                    <td>${p.vendor || '-'}</td>`;
-                if (isLog) {
-                    row += `<td>
-                        <button onclick="editProduct(${p.id}, '${p.name}', ${qty}, ${p.price}, '${p.vendor || ''}')" style="background-color: #d97706; width: auto; padding: 5px 10px;">تعديل</button>
-                        <button onclick="deleteProduct(${p.id})" style="background-color: #dc2626; width: auto; padding: 5px 10px;">حذف</button>
-                    </td>`;
-                }
-                row += `</tr>`;
-                tbody.innerHTML += row;
-            });
-        }
-
-        function updateStats(products) {
-            let totalCount = products.length;
-            let totalQty = 0;
-            let totalValue = 0;
-            let lowStockCount = 0;
-
-            products.forEach(p => {
-                let qty = Number(p.quantity) || 0;
-                let price = Number(p.price) || 0;
-                totalQty += qty;
-                totalValue += (qty * price);
-                if (qty <= 5) lowStockCount++;
-            });
-
-            document.getElementById('stat-count').innerText = totalCount;
-            document.getElementById('stat-qty').innerText = totalQty;
-            document.getElementById('stat-value').innerText = totalValue.toLocaleString() + ' ر.س';
-            document.getElementById('stat-low').innerText = lowStockCount;
-        }
-
-        function filterStoreProducts() {
-            const query = document.getElementById('store-search').value.toLowerCase();
-            const filtered = allProducts.filter(p => p.name.toLowerCase().includes(query) || (p.vendor && p.vendor.toLowerCase().includes(query)));
-            displayCustomerProducts(filtered);
-        }
-
-        // الدوال الأساسية للإدارة وتسجيل الدخول
-        function registerUser() {
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
-            fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            }).then(res => res.json()).then(data => {
-                document.getElementById('auth-msg').innerText = data.message;
-                document.getElementById('auth-msg').className = 'success';
-            }).catch(err => {
-                document.getElementById('auth-msg').innerText = 'خطأ في التسجيل';
-                document.getElementById('auth-msg').className = 'error';
-            });
-        }
-
-        function loginUser() {
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
-            fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            }).then(res => {
-                if (!res.ok) throw new Error('فشل تسجيل الدخول');
-                checkAuthStatus();
-            }).catch(err => {
-                document.getElementById('auth-msg').innerText = 'البيانات غير صحيحة';
-                document.getElementById('auth-msg').className = 'error';
-            });
-        }
-
-        function logoutUser() {
-            fetch('/api/logout', { method: 'POST' }).then(() => checkAuthStatus());
-        }
-
-        function saveProduct() {
-            const editId = document.getElementById('edit-id').value;
-            const name = document.getElementById('prod-name').value;
-            const quantity = document.getElementById('prod-quantity').value;
-            const price = document.getElementById('prod-price').value;
-            const vendor = document.getElementById('prod-vendor').value;
-            const url = editId ? `/api/products/${editId}` : '/api/products';
-            const method = editId ? 'PUT' : 'POST';
-
-            fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, quantity, price, vendor })
-            }).then(() => {
-                loadProducts();
-                resetForm();
-            });
-        }
-
-        function editProduct(id, name, quantity, price, vendor) {
-            document.getElementById('edit-id').value = id;
-            document.getElementById('prod-name').value = name;
-            document.getElementById('prod-quantity').value = quantity;
-            document.getElementById('prod-price').value = price;
-            document.getElementById('prod-vendor').value = vendor === 'null' ? '' : vendor;
-            document.getElementById('form-title').innerText = '✏️ تعديل المنتج رقم ' + id;
-            document.getElementById('submit-btn').innerText = 'حفظ التعديلات';
-            document.getElementById('cancel-btn').style.display = 'block';
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        }
-
-        function resetForm() {
-            document.getElementById('edit-id').value = '';
-            document.getElementById('prod-name').value = '';
-            document.getElementById('prod-quantity').value = '';
-            document.getElementById('prod-price').value = '';
-            document.getElementById('prod-vendor').value = '';
-            document.getElementById('form-title').innerText = '➕ إضافة منتج جديد للمخزن';
-            document.getElementById('submit-btn').innerText = 'إضافة المنتج';
-            document.getElementById('cancel-btn').style.display = 'none';
-        }
-
-        function deleteProduct(id) {
-            if (confirm('هل أنت متأكد من الحذف؟')) {
-                fetch(`/api/products/${id}`, { method: 'DELETE' }).then(() => loadProducts());
-            }
-        }
-
-        window.onload = function() {
-            checkAuthStatus();
-        };
     </script>
-<script>
-async function submitPayment() {
-    const totalText = document.getElementById('cart-total').innerText;
-    const totalAmount = parseFloat(totalText) || 150;
-    const amountInHalalas = Math.round(totalAmount * 100);
-
-    const paymentData = {
-        amount: amountInHalalas,
-        card_name: "Test User",
-        card_number: "4000000000000000",
-        card_month: "12",
-        card_year: "28",
-        card_cvc: "123"
-    };
-
-    try {
-        const response = await fetch('/create-payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(paymentData)
-        });
-
-        const result = await response.json();
-
-        if (result.status === "paid" || result.status === "initiated") {
-            alert("🎉 تمت عملية الدفع بنجاح!");
-            window.location.reload();
-        } else {
-            alert("❌ فشلت عملية الدفع: " + (result.message || "تأكد من بيانات البطاقة"));
-        }
-    } catch (error) {
-        console.error("Error:", error);
-        alert("حدث خطأ في الاتصال بالبوابة.");
-    }
-}
-</script>
 </body>
 </html>
-
