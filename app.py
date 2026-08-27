@@ -114,6 +114,7 @@ INDEX_TEMPLATE = '''
                                     <div class="flex gap-2 mt-4">
                                         <a href="/add-to-cart/{{ product[0] }}" class="flex-1 text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition text-sm font-semibold">أضف للسلة</a>
                                         <a href="/edit-product/{{ product[0] }}" class="bg-amber-500 text-white px-3 py-2 rounded-lg hover:bg-amber-600 transition text-sm font-semibold">تعديل</a>
+                                        <a href="/delete-product/{{ product[0] }}" onclick="return confirm('هل أنت متأكد من حذف هذا المنتج؟');" class="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 transition text-sm font-semibold">حذف</a>
                                     </div>
                                 </div>
                             {% endfor %}
@@ -414,6 +415,18 @@ def edit_product(product_id):
     if not product:
         return "المنتج غير موجود!"
     return render_template_string(EDIT_TEMPLATE, product=product)
+
+@app.route('/delete-product/<int:product_id>')
+def delete_product(product_id):
+    try:
+        conn = sqlite3.connect('store.db')
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM products WHERE id = ?', (product_id,))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('index'))
+    except Exception as e:
+        return f"خطأ أثناء حذف المنتج: {str(e)}"
 
 @app.route('/add-to-cart/<int:product_id>')
 def add_to_cart(product_id):
