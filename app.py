@@ -7,41 +7,49 @@ app = Flask(__name__)
 app.secret_key = 'smart_store_secret_key'
 
 def init_db():
-    conn = sqlite3.connect('store.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
-            vendor TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect('store.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                price REAL NOT NULL,
+                vendor TEXT
+            )
+        ''')
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print("DB Init Error:", e)
 
 init_db()
 
 @app.route('/')
 def index():
-    conn = sqlite3.connect('store.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM products')
-    products = cursor.fetchall()
-    conn.close()
-    
-    cart = session.get('cart', {})
-    cart_count = sum(cart.values())
-    
-    return render_template('index.html', products=products, cart_count=cart_count)
+    try:
+        conn = sqlite3.connect('store.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM products')
+        products = cursor.fetchall()
+        conn.close()
+        
+        cart = session.get('cart', {})
+        if not isinstance(cart, dict):
+            cart = {}
+        cart_count = sum(int(v) for v in cart.values() if str(v).isdigit())
+        
+        return render_template('index.html', products=products, cart_count=cart_count)
+    except Exception as e:
+        return f"حدث خطأ في الصفحة الرئيسية: {str(e)}"
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -83,22 +91,25 @@ def logout():
 
 @app.route('/add-product', methods=['POST'])
 def add_product():
-    name = request.form.get('name')
-    quantity = request.form.get('quantity')
-    price = request.form.get('price')
-    vendor = request.form.get('vendor')
-    
-    conn = sqlite3.connect('store.db')
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)', 
-                   (name, quantity, price, vendor))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
+    try:
+        name = request.form.get('name')
+        quantity = request.form.get('quantity')
+        price = request.form.get('price')
+        vendor = request.form.get('vendor')
+        
+        conn = sqlite3.connect('store.db')
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)', 
+                       (name, quantity, price, vendor))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('index'))
+    except Exception as e:
+        return f"خطأ أثناء إضافة المنتج: {str(e)}"
 
 @app.route('/add-to-cart/<int:product_id>')
 def add_to_cart(product_id):
-    if 'cart' not in session:
+    if 'cart' not in session or not isinstance(session['cart'], dict):
         session['cart'] = {}
     
     cart = session['cart']
@@ -114,30 +125,35 @@ def add_to_cart(product_id):
 
 @app.route('/cart')
 def view_cart():
-    cart = session.get('cart', {})
-    conn = sqlite3.connect('store.db')
-    cursor = conn.cursor()
-    
-    cart_items = []
-    total_price = 0
-    
-    for product_id, quantity in cart.items():
-        cursor.execute('SELECT * FROM products WHERE id = ?', (product_id,))
-        product = cursor.fetchone()
-        if product:
-            item_total = product[3] * quantity
-            total_price += item_total
-            cart_items.append({
-                'id': product[0],
-                'name': product[1],
-                'price': product[3],
-                'quantity': quantity,
-                'total': item_total,
-                'vendor': product[4]
-            })
-            
-    conn.close()
-    return render_template('cart.html', cart_items=cart_items, total_price=total_price)
+    try:
+        cart = session.get('cart', {})
+        if not isinstance(cart, dict):
+            cart = {}
+        conn = sqlite3.connect('store.db')
+        cursor = conn.cursor()
+        
+        cart_items = []
+        total_price = 0
+        
+        for product_id, quantity in cart.items():
+            cursor.execute('SELECT * FROM products WHERE id = ?', (product_id,))
+            product = cursor.fetchone()
+            if product:
+                item_total = product[3] * int(quantity)
+                total_price += item_total
+                cart_items.append({
+                    'id': product[0],
+                    'name': product[1],
+                    'price': product[3],
+                    'quantity': quantity,
+                    'total': item_total,
+                    'vendor': product[4]
+                })
+                
+        conn.close()
+        return render_template('cart.html', cart_items=cart_items, total_price=total_price)
+    except Exception as e:
+        return f"خطأ في عرض السلة: {str(e)}"
 
 @app.route('/remove-from-cart/<int:product_id>')
 def remove_from_cart(product_id):
