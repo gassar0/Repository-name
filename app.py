@@ -63,7 +63,7 @@ INDEX_TEMPLATE = '''
     <div class="container mx-auto px-4 py-8">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- Add Product Form -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
+            <div class="bg-white p-6 rounded-xl shadow-md h-fit">
                 <h2 class="text-xl font-bold mb-4 text-gray-800">➕ إضافة منتج جديد</h2>
                 <form action="/add-product" method="POST" class="space-y-4">
                     <div>
@@ -86,26 +86,42 @@ INDEX_TEMPLATE = '''
                 </form>
             </div>
 
-            <!-- Products List -->
-            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-gray-800">📦 المنتجات المتوفرة</h2>
-                {% if products %}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {% for product in products %}
-                            <div class="border rounded-lg p-4 flex flex-col justify-between bg-gray-50 hover:shadow-md transition">
-                                <div>
-                                    <h3 class="font-bold text-lg text-gray-800">{{ product[1] }}</h3>
-                                    <p class="text-gray-600 text-sm">البائع: {{ product[4] or 'غير متوفر' }}</p>
-                                    <p class="text-blue-600 font-bold mt-2 text-xl">{{ product[3] }} ر.س</p>
-                                    <p class="text-gray-500 text-xs mt-1">الكمية المتاحة: {{ product[2] }}</p>
+            <!-- Products List & Search -->
+            <div class="md:col-span-2 space-y-6">
+                <!-- Search Bar -->
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <form method="GET" action="/" class="flex gap-2">
+                        <input type="text" name="q" value="{{ search_query }}" placeholder="ابحث عن اسم المنتج أو البائع..." class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition font-semibold">بحث</button>
+                        {% if search_query %}
+                            <a href="/" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center font-semibold">إلغاء</a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">📦 المنتجات المتوفرة</h2>
+                    {% if products %}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {% for product in products %}
+                                <div class="border rounded-lg p-4 flex flex-col justify-between bg-gray-50 hover:shadow-md transition">
+                                    <div>
+                                        <h3 class="font-bold text-lg text-gray-800">{{ product[1] }}</h3>
+                                        <p class="text-gray-600 text-sm">البائع: {{ product[4] or 'غير متوفر' }}</p>
+                                        <p class="text-blue-600 font-bold mt-2 text-xl">{{ product[3] }} ر.س</p>
+                                        <p class="text-gray-500 text-xs mt-1">الكمية المتاحة: {{ product[2] }}</p>
+                                    </div>
+                                    <div class="flex gap-2 mt-4">
+                                        <a href="/add-to-cart/{{ product[0] }}" class="flex-1 text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition text-sm font-semibold">أضف للسلة</a>
+                                        <a href="/edit-product/{{ product[0] }}" class="bg-amber-500 text-white px-3 py-2 rounded-lg hover:bg-amber-600 transition text-sm font-semibold">تعديل</a>
+                                    </div>
                                 </div>
-                                <a href="/add-to-cart/{{ product[0] }}" class="mt-4 block text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">أضف للسلة</a>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-gray-500 text-center py-8">لا توجد منتجات مضافة حتى الآن. ابدأ بإضافة منتجك الأول!</p>
-                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-gray-500 text-center py-8">لا توجد منتجات مطابقة للبحث أو مضافة حتى الآن.</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -168,6 +184,45 @@ REGISTER_TEMPLATE = '''
         </form>
         <p class="text-center mt-4 text-gray-600">لديك حساب بالفعل؟ <a href="/login" class="text-blue-600 font-bold hover:underline">سجل دخولك</a></p>
         <p class="text-center mt-2"><a href="/" class="text-gray-500 text-sm hover:underline">العودة للرئيسية</a></p>
+    </div>
+</body>
+</html>
+'''
+
+EDIT_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تعديل المنتج</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+        <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">✏️ تعديل بيانات المنتج</h2>
+        <form method="POST" class="space-y-4">
+            <div>
+                <label class="block text-gray-700 mb-1">اسم المنتج</label>
+                <input type="text" name="name" value="{{ product[1] }}" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 mb-1">الكمية</label>
+                <input type="number" name="quantity" value="{{ product[2] }}" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 mb-1">السعر (ر.س)</label>
+                <input type="number" step="0.01" name="price" value="{{ product[3] }}" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 mb-1">البائع</label>
+                <input type="text" name="vendor" value="{{ product[4] or '' }}" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">حفظ التعديلات</button>
+                <a href="/" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition text-center flex items-center justify-center font-semibold">إلغاء</a>
+            </div>
+        </form>
     </div>
 </body>
 </html>
@@ -259,9 +314,16 @@ CART_TEMPLATE = '''
 @app.route('/')
 def index():
     try:
+        search_query = request.args.get('q', '').strip()
         conn = sqlite3.connect('store.db')
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM products')
+        
+        if search_query:
+            cursor.execute('SELECT * FROM products WHERE name LIKE ? OR vendor LIKE ?', 
+                           (f'%{search_query}%', f'%{search_query}%'))
+        else:
+            cursor.execute('SELECT * FROM products')
+            
         products = cursor.fetchall()
         conn.close()
         
@@ -270,7 +332,7 @@ def index():
             cart = {}
         cart_count = sum(int(v) for v in cart.values() if str(v).isdigit())
         
-        return render_template_string(INDEX_TEMPLATE, products=products, cart_count=cart_count)
+        return render_template_string(INDEX_TEMPLATE, products=products, cart_count=cart_count, search_query=search_query)
     except Exception as e:
         return f"حدث خطأ في الصفحة الرئيسية: {str(e)}"
 
@@ -329,6 +391,29 @@ def add_product():
         return redirect(url_for('index'))
     except Exception as e:
         return f"خطأ أثناء إضافة المنتج: {str(e)}"
+
+@app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
+def edit_product(product_id):
+    conn = sqlite3.connect('store.db')
+    cursor = conn.cursor()
+    if request.method == 'POST':
+        name = request.form.get('name')
+        quantity = request.form.get('quantity')
+        price = request.form.get('price')
+        vendor = request.form.get('vendor')
+        
+        cursor.execute('UPDATE products SET name = ?, quantity = ?, price = ?, vendor = ? WHERE id = ?',
+                       (name, quantity, price, vendor, product_id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('index'))
+    
+    cursor.execute('SELECT * FROM products WHERE id = ?', (product_id,))
+    product = cursor.fetchone()
+    conn.close()
+    if not product:
+        return "المنتج غير موجود!"
+    return render_template_string(EDIT_TEMPLATE, product=product)
 
 @app.route('/add-to-cart/<int:product_id>')
 def add_to_cart(product_id):
