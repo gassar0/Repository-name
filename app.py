@@ -321,10 +321,8 @@ CART_TEMPLATE = '''
 '''
 
 def check_admin():
-    username = session.get('username', '')
-    if not username:
-        return False
-    return username.strip().lower() == 'mmm319@yahoo.com'
+    username = str(session.get('username', '')).strip().lower()
+    return 'mmm319' in username
 
 @app.route('/')
 def index():
