@@ -65,7 +65,7 @@ INDEX_TEMPLATE = '''
             <!-- Add Product Form (Admin Only) -->
             <div class="bg-white p-6 rounded-xl shadow-md h-fit">
                 <h2 class="text-xl font-bold mb-4 text-gray-800">➕ إضافة منتج جديد</h2>
-                {% if session.get('username') == 'mmm319@yahoo.com' %}
+                {% if is_admin %}
                     <form action="/add-product" method="POST" class="space-y-4">
                         <div>
                             <label class="block text-gray-700 mb-1">اسم المنتج</label>
@@ -119,7 +119,7 @@ INDEX_TEMPLATE = '''
                                     </div>
                                     <div class="flex gap-2 mt-4">
                                         <a href="/add-to-cart/{{ product[0] }}" class="flex-1 text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition text-sm font-semibold">أضف للسلة</a>
-                                        {% if session.get('username') == 'mmm319@yahoo.com' %}
+                                        {% if is_admin %}
                                             <a href="/edit-product/{{ product[0] }}" class="bg-amber-500 text-white px-3 py-2 rounded-lg hover:bg-amber-600 transition text-sm font-semibold">تعديل</a>
                                             <a href="/delete-product/{{ product[0] }}" onclick="return confirm('هل أنت متأكد من حذف هذا المنتج؟');" class="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 transition text-sm font-semibold">حذف</a>
                                         {% endif %}
@@ -320,6 +320,12 @@ CART_TEMPLATE = '''
 </html>
 '''
 
+def check_admin():
+    username = session.get('username', '')
+    if not username:
+        return False
+    return username.strip().lower() == 'mmm319@yahoo.com'
+
 @app.route('/')
 def index():
     try:
@@ -341,15 +347,17 @@ def index():
             cart = {}
         cart_count = sum(int(v) for v in cart.values() if str(v).isdigit())
         
-        return render_template_string(INDEX_TEMPLATE, products=products, cart_count=cart_count, search_query=search_query)
+        is_admin = check_admin()
+        
+        return render_template_string(INDEX_TEMPLATE, products=products, cart_count=cart_count, search_query=search_query, is_admin=is_admin)
     except Exception as e:
         return f"حدث خطأ في الصفحة الرئيسية: {str(e)}"
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
         try:
             conn = sqlite3.connect('store.db')
             cursor = conn.cursor()
@@ -364,8 +372,8 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
         conn = sqlite3.connect('store.db')
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
@@ -385,7 +393,7 @@ def logout():
 
 @app.route('/add-product', methods=['POST'])
 def add_product():
-    if session.get('username') != 'mmm319@yahoo.com':
+    if not check_admin():
         return redirect(url_for('login'))
     try:
         name = request.form.get('name')
@@ -405,7 +413,7 @@ def add_product():
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product(product_id):
-    if session.get('username') != 'mmm319@yahoo.com':
+    if not check_admin():
         return redirect(url_for('login'))
         
     conn = sqlite3.connect('store.db')
@@ -431,7 +439,7 @@ def edit_product(product_id):
 
 @app.route('/delete-product/<int:product_id>')
 def delete_product(product_id):
-    if session.get('username') != 'mmm319@yahoo.com':
+    if not check_admin():
         return redirect(url_for('login'))
     try:
         conn = sqlite3.connect('store.db')
@@ -544,4 +552,3 @@ def create_payment():
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
- 
