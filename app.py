@@ -32,7 +32,6 @@ def init_db():
                 image TEXT
             )
         ''')
-        # التأكد من وجود عمود الصورة لو القاعدة قديمة
         try:
             cursor.execute('ALTER TABLE products ADD COLUMN image TEXT')
         except sqlite3.OperationalError:
@@ -71,113 +70,137 @@ INDEX_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>المتجر الذكي - Smart Store</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>المتجر الإلكتروني الذكي</title>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; padding: 15px; margin: 0; box-sizing: border-box; }
+        .container { max-width: 900px; margin: auto; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h1, h2, h3 { text-align: center; color: #38bdf8; }
+        .btn { background-color: #10b981; color: white; padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; font-size: 14px; transition: background 0.2s; white-space: nowrap; }
+        .btn:hover { opacity: 0.9; }
+        .btn-primary { background-color: #2563eb; }
+        .btn-danger { background-color: #ef4444; }
+        .btn-warning { background-color: #f59e0b; color: #000; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; }
+        
+        /* تنسيق الهيدر العلوي */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; justify-content: flex-end; }
+        @media(min-width: 600px) {
+            .top-actions { width: auto; }
+        }
+
+        /* تنسيق البحث */
+        .search-box-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-box-container input { margin: 0; flex: 1; }
+        
+        /* تنسيق كروت المنتجات */
+        .products-grid { display: flex; flex-direction: column; gap: 20px; margin-top: 15px; }
+        .product-card { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .product-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+        .product-title { font-size: 18px; font-weight: bold; color: #38bdf8; margin: 0 0 5px 0; }
+        .product-price { font-size: 20px; font-weight: bold; color: #60a5fa; white-space: nowrap; }
+        .product-info { color: #94a3b8; font-size: 14px; }
+        .product-img { width: 100%; height: 200px; object-fit: contain; background: #0b0f19; border-radius: 8px; border: 1px solid #334155; }
+        .product-actions { display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
+        .product-actions .btn { flex: 1; min-width: 100px; }
+    </style>
 </head>
-<body class="bg-gray-50 font-sans">
-    <nav class="bg-blue-600 text-white shadow-lg">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="/" class="text-2xl font-bold">🛒 المتجر الذكي</a>
-            <div class="flex items-center gap-4">
-                <a href="/cart" class="bg-blue-700 px-4 py-2 rounded-lg hover:bg-blue-800 transition">السلة ({{ cart_count }})</a>
-                <a href="/export-csv" class="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 transition">تصدير CSV</a>
-                {% if is_admin %}
-                    <a href="/orders" class="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700 transition">الطلبات</a>
-                {% endif %}
+<body>
+    <div class="container">
+        <!-- هيدر المتجر -->
+        <div class="card top-bar">
+            <h2 style="margin: 0; font-size: 22px;">🛍️ المتجر الإلكتروني الذكي</h2>
+            <div class="top-actions">
                 {% if session.get('username') %}
-                    <span class="font-semibold">أهلاً، {{ session['username'] }}</span>
-                    <a href="/logout" class="bg-red-500 px-3 py-1 rounded hover:bg-red-600 transition">خروج</a>
-                {% else %}
-                    <a href="/login" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition">دخول</a>
-                    <a href="/register" class="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition">حساب جديد</a>
+                    <span style="font-size: 14px; color: #38bdf8; word-break: break-all;">أهلاً، {{ session['username'] }}</span>
+                    <a href="{{ url_for('logout') }}" class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;">خروج</a>
                 {% endif %}
+                {% if is_admin %}
+                    <a href="{{ url_for('view_orders') }}" class="btn" style="background-color: #9333ea; padding: 8px 12px;">الطلبات</a>
+                {% endif %}
+                <a href="{{ url_for('export_csv') }}" class="btn" style="background-color: #d97706; padding: 8px 12px;">تصدير CSV</a>
+                <a href="{{ url_for('view_cart') }}" class="btn" style="padding: 8px 14px;">🛒 السلة ({{ cart_count }})</a>
             </div>
         </div>
-    </nav>
 
-    <div class="container mx-auto px-4 py-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <!-- Add Product Form (Admin Only) -->
-            <div class="bg-white p-6 rounded-xl shadow-md h-fit">
-                <h2 class="text-xl font-bold mb-4 text-gray-800">➕ إضافة منتج جديد</h2>
-                {% if is_admin %}
-                    <form action="/add-product" method="POST" enctype="multipart/form-data" class="space-y-4">
-                        <div>
-                            <label class="block text-gray-700 mb-1">اسم المنتج</label>
-                            <input type="text" name="name" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-1">الكمية</label>
-                            <input type="number" name="quantity" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-1">السعر (ر.س)</label>
-                            <input type="number" step="0.01" name="price" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-1">البائع</label>
-                            <input type="text" name="vendor" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-1">صورة المنتج</label>
-                            <input type="file" name="image" accept="image/*" class="w-full border rounded-lg px-3 py-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">إضافة المنتج</button>
-                    </form>
-                {% else %}
-                    <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-center text-sm">
-                        عذراً، لوحة إضافة المنتجات مخصصة للمدير (الأدمن) فقط.
-                    </div>
-                {% endif %}
+        <!-- المنتجات المتاحة للشراء -->
+        <div class="card">
+            <h2>🔥 المنتجات المتوفرة</h2>
+            <div class="search-box-container">
+                <input type="text" id="searchBox" placeholder="🔍 ابحث عن اسم المنتج أو البائع..." onkeyup="filterProducts()">
             </div>
-
-            <!-- Products List & Search -->
-            <div class="md:col-span-2 space-y-6">
-                <!-- Search Bar -->
-                <div class="bg-white p-4 rounded-xl shadow-md">
-                    <form method="GET" action="/" class="flex gap-2">
-                        <input type="text" name="q" value="{{ search_query }}" placeholder="ابحث عن اسم المنتج أو البائع..." class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition font-semibold">بحث</button>
-                        {% if search_query %}
-                            <a href="/" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center font-semibold">إلغاء</a>
-                        {% endif %}
-                    </form>
-                </div>
-
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-bold mb-4 text-gray-800">📦 المنتجات المتوفرة</h2>
-                    {% if products %}
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {% for product in products %}
-                                <div class="border rounded-lg p-4 flex flex-col justify-between bg-gray-50 hover:shadow-md transition">
-                                    <div>
-                                        {% if product[5] %}
-                                            <img src="{{ url_for('static', filename='uploads/' + product[5]) }}" alt="{{ product[1] }}" class="w-full h-40 object-cover rounded-lg mb-3">
-                                        {% else %}
-                                            <div class="w-full h-40 bg-gray-200 rounded-lg mb-3 flex items-center justify-center text-gray-400 text-sm">لا توجد صورة</div>
-                                        {% endif %}
-                                        <h3 class="font-bold text-lg text-gray-800">{{ product[1] }}</h3>
-                                        <p class="text-gray-600 text-sm">البائع: {{ product[4] or 'غير متوفر' }}</p>
-                                        <p class="text-blue-600 font-bold mt-2 text-xl">{{ product[3] }} ر.س</p>
-                                        <p class="text-gray-500 text-xs mt-1">الكمية المتاحة: {{ product[2] }}</p>
-                                    </div>
-                                    <div class="flex gap-2 mt-4">
-                                        <a href="/add-to-cart/{{ product[0] }}" class="flex-1 text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition text-sm font-semibold">أضف للسلة</a>
-                                        {% if is_admin %}
-                                            <a href="/edit-product/{{ product[0] }}" class="bg-amber-500 text-white px-3 py-2 rounded-lg hover:bg-amber-600 transition text-sm font-semibold">تعديل</a>
-                                            <a href="/delete-product/{{ product[0] }}" onclick="return confirm('هل أنت متأكد من حذف هذا المنتج؟');" class="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 transition text-sm font-semibold">حذف</a>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="text-gray-500 text-center py-8">لا توجد منتجات مطابقة للبحث أو مضافة حتى الآن.</p>
+            
+            {% if products %}
+            <div class="products-grid" id="productsContainer">
+                {% for product in products %}
+                <div class="product-card" data-name="{{ product[1]|lower }}" data-vendor="{{ product[4]|lower }}">
+                    {% if product[5] %}
+                        <img src="{{ url_for('static', filename='uploads/' + product[5]) }}" alt="{{ product[1] }}" class="product-img">
                     {% endif %}
+                    <div class="product-header">
+                        <div>
+                            <h3 class="product-title" style="text-align: right;">{{ product[1] }}</h3>
+                            <span class="product-info">البائع: {{ product[4] or 'غير متوفر' }} | الكمية المتاحة: {{ product[2] }}</span>
+                        </div>
+                        <div class="product-price">{{ product[3] }} ر.س</div>
+                    </div>
+                    
+                    <div class="product-actions">
+                        <a href="{{ url_for('add_to_cart', product_id=product[0]) }}" class="btn btn-primary">أضف للسلة 🛒</a>
+                        {% if is_admin %}
+                            <a href="{{ url_for('edit_product', product_id=product[0]) }}" class="btn btn-warning">تعديل</a>
+                            <a href="{{ url_for('delete_product', product_id=product[0]) }}" onclick="return confirm('هل أنت متأكد من الحذف؟');" class="btn btn-danger">حذف</a>
+                        {% endif %}
+                    </div>
                 </div>
+                {% endfor %}
             </div>
+            {% else %}
+            <p style="text-align: center; color: #94a3b8; margin-top: 20px;">لا توجد منتجات متاحة حالياً.</p>
+            {% endif %}
+        </div>
+
+        <!-- بوابة إدارة المتجر (للمسؤولين) -->
+        <div class="card">
+            <h2>🔒 بوابة إدارة المتجر (للمسؤولين)</h2>
+            {% if is_admin %}
+                <h3 style="color: #38bdf8; margin-top: 20px; text-align: right;">📦 إضافة منتج جديد</h3>
+                <form action="{{ url_for('add_product') }}" method="POST" enctype="multipart/form-data">
+                    <input type="text" name="name" placeholder="اسم المنتج" required>
+                    <input type="number" name="quantity" placeholder="الكمية" required>
+                    <input type="number" step="0.01" name="price" placeholder="السعر (ر.س)" required>
+                    <input type="text" name="vendor" placeholder="اسم البائع">
+                    <div style="margin: 10px 0; text-align: right;">
+                        <label style="font-size: 14px; color: #94a3b8; display: block; margin-bottom: 5px;">صورة المنتج:</label>
+                        <input type="file" name="image" accept="image/*" style="padding: 6px;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">إضافة المنتج للمخزن</button>
+                </form>
+            {% else %}
+                <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary" style="flex: 1; min-width: 130px;">تسجيل الدخول</a>
+                    <a href="{{ url_for('register') }}" class="btn" style="flex: 1; background-color: #0284c7; min-width: 130px;">إنشاء حساب جديد</a>
+                </div>
+            {% endif %}
         </div>
     </div>
+
+    <script>
+        function filterProducts() {
+            let input = document.getElementById('searchBox').value.toLowerCase();
+            let cards = document.querySelectorAll('.product-card');
+            cards.forEach(card => {
+                let name = card.getAttribute('data-name');
+                let vendor = card.getAttribute('data-vendor');
+                if (name.includes(input) || vendor.includes(input)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+    </script>
 </body>
 </html>
 '''
@@ -189,24 +212,28 @@ LOGIN_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تسجيل الدخول</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; }
+        .card { background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 100%; max-width: 400px; box-sizing: border-box; }
+        h2 { text-align: center; color: #38bdf8; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; }
+        .btn { background-color: #2563eb; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        .btn:hover { opacity: 0.9; }
+        p { text-align: center; color: #94a3b8; font-size: 14px; }
+        a { color: #38bdf8; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-        <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">تسجيل الدخول</h2>
-        <form method="POST" class="space-y-4">
-            <div>
-                <label class="block text-gray-700 mb-1">اسم المستخدم</label>
-                <input type="text" name="username" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-gray-700 mb-1">كلمة المرور</label>
-                <input type="password" name="password" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">دخول</button>
+<body>
+    <div class="card">
+        <h2>تسجيل الدخول</h2>
+        <form method="POST">
+            <input type="text" name="username" placeholder="اسم المستخدم" required>
+            <input type="password" name="password" placeholder="كلمة المرور" required>
+            <button type="submit" class="btn">دخول</button>
         </form>
-        <p class="text-center mt-4 text-gray-600">ليس لديك حساب؟ <a href="/register" class="text-blue-600 font-bold hover:underline">سجل الآن</a></p>
-        <p class="text-center mt-2"><a href="/" class="text-gray-500 text-sm hover:underline">العودة للرئيسية</a></p>
+        <p style="margin-top: 20px;">ليس لديك حساب؟ <a href="/register">سجل الآن</a></p>
+        <p><a href="/">العودة للرئيسية</a></p>
     </div>
 </body>
 </html>
@@ -219,24 +246,28 @@ REGISTER_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>إنشاء حساب جديد</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; }
+        .card { background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 100%; max-width: 400px; box-sizing: border-box; }
+        h2 { text-align: center; color: #38bdf8; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; }
+        .btn { background-color: #2563eb; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        .btn:hover { opacity: 0.9; }
+        p { text-align: center; color: #94a3b8; font-size: 14px; }
+        a { color: #38bdf8; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-        <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">إنشاء حساب جديد</h2>
-        <form method="POST" class="space-y-4">
-            <div>
-                <label class="block text-gray-700 mb-1">اسم المستخدم</label>
-                <input type="text" name="username" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-gray-700 mb-1">كلمة المرور</label>
-                <input type="password" name="password" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">تسجيل</button>
+<body>
+    <div class="card">
+        <h2>إنشاء حساب جديد</h2>
+        <form method="POST">
+            <input type="text" name="username" placeholder="اسم المستخدم" required>
+            <input type="password" name="password" placeholder="كلمة المرور" required>
+            <button type="submit" class="btn">تسجيل</button>
         </form>
-        <p class="text-center mt-4 text-gray-600">لديك حساب بالفعل؟ <a href="/login" class="text-blue-600 font-bold hover:underline">سجل دخولك</a></p>
-        <p class="text-center mt-2"><a href="/" class="text-gray-500 text-sm hover:underline">العودة للرئيسية</a></p>
+        <p style="margin-top: 20px;">لديك حساب بالفعل؟ <a href="/login">سجل دخولك</a></p>
+        <p><a href="/">العودة للرئيسية</a></p>
     </div>
 </body>
 </html>
@@ -249,36 +280,37 @@ EDIT_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تعديل المنتج</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; }
+        .card { background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 100%; max-width: 450px; box-sizing: border-box; }
+        h2 { text-align: center; color: #38bdf8; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; }
+        .btn { background-color: #2563eb; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; }
+        .btn-secondary { background-color: #64748b; margin-top: 5px; }
+        .btn:hover { opacity: 0.9; }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-        <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">✏️ تعديل بيانات المنتج</h2>
-        <form method="POST" enctype="multipart/form-data" class="space-y-4">
-            <div>
-                <label class="block text-gray-700 mb-1">اسم المنتج</label>
-                <input type="text" name="name" value="{{ product[1] }}" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-gray-700 mb-1">الكمية</label>
-                <input type="number" name="quantity" value="{{ product[2] }}" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-gray-700 mb-1">السعر (ر.س)</label>
-                <input type="number" step="0.01" name="price" value="{{ product[3] }}" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-gray-700 mb-1">البائع</label>
-                <input type="text" name="vendor" value="{{ product[4] or '' }}" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-gray-700 mb-1">تحديث صورة المنتج (اختياري)</label>
-                <input type="file" name="image" accept="image/*" class="w-full border rounded-lg px-3 py-2 text-sm text-gray-500">
-            </div>
-            <div class="flex gap-2 pt-2">
-                <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">حفظ التعديلات</button>
-                <a href="/" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition text-center flex items-center justify-center font-semibold">إلغاء</a>
-            </div>
+<body>
+    <div class="card">
+        <h2>✏️ تعديل بيانات المنتج</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <label style="font-size: 14px; color: #94a3b8;">اسم المنتج</label>
+            <input type="text" name="name" value="{{ product[1] }}" required>
+            
+            <label style="font-size: 14px; color: #94a3b8;">الكمية</label>
+            <input type="number" name="quantity" value="{{ product[2] }}" required>
+            
+            <label style="font-size: 14px; color: #94a3b8;">السعر (ر.س)</label>
+            <input type="number" step="0.01" name="price" value="{{ product[3] }}" required>
+            
+            <label style="font-size: 14px; color: #94a3b8;">البائع</label>
+            <input type="text" name="vendor" value="{{ product[4] or '' }}">
+            
+            <label style="font-size: 14px; color: #94a3b8;">صورة جديدة (اختياري)</label>
+            <input type="file" name="image" accept="image/*">
+
+            <button type="submit" class="btn">حفظ التعديلات</button>
+            <a href="/" class="btn btn-secondary">إلغاء</a>
         </form>
     </div>
 </body>
@@ -292,58 +324,61 @@ CART_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سلة المشتريات</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; padding: 15px; margin: 0; box-sizing: border-box; }
+        .container { max-width: 800px; margin: auto; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h1, h2 { text-align: center; color: #38bdf8; }
+        .btn { background-color: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; font-size: 14px; }
+        .btn-danger { background-color: #ef4444; }
+        .btn-primary { background-color: #2563eb; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; overflow-x: auto; display: block; }
+        th, td { padding: 12px; text-align: right; border-bottom: 1px solid #334155; white-space: nowrap; }
+        th { color: #38bdf8; }
+    </style>
 </head>
-<body class="bg-gray-50 font-sans">
-    <nav class="bg-blue-600 text-white shadow-lg">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="/" class="text-2xl font-bold">🛒 المتجر الذكي</a>
-            <a href="/" class="bg-blue-700 px-4 py-2 rounded-lg hover:bg-blue-800 transition">العودة للمتجر</a>
+<body>
+    <div class="container">
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h2 style="margin: 0;">🛒 سلة المشتريات</h2>
+            <a href="/" class="btn btn-primary" style="padding: 8px 15px;">العودة للمتجر</a>
         </div>
-    </nav>
 
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 class="text-2xl font-bold mb-6 text-gray-800">🛍️ سلة المشتريات</h1>
-        {% if cart_items %}
-            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
-                <table class="w-full text-right border-collapse">
+        <div class="card">
+            {% if cart_items %}
+                <table>
                     <thead>
-                        <tr class="bg-gray-100 border-b">
-                            <th class="p-4">المنتج</th>
-                            <th class="p-4">السعر</th>
-                            <th class="p-4">الكمية</th>
-                            <th class="p-4">الإجمالي</th>
-                            <th class="p-4">إجراء</th>
+                        <tr>
+                            <th>المنتج</th>
+                            <th>السعر</th>
+                            <th>الكمية</th>
+                            <th>الإجمالي</th>
+                            <th>إجراء</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in cart_items %}
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="p-4 font-semibold">{{ item.name }}</td>
-                                <td class="p-4">{{ item.price }} ر.س</td>
-                                <td class="p-4">{{ item.quantity }}</td>
-                                <td class="p-4 font-bold text-blue-600">{{ item.total }} ر.س</td>
-                                <td class="p-4">
-                                    <a href="/remove-from-cart/{{ item.id }}" class="text-red-500 hover:text-red-700 font-bold">حذف</a>
-                                </td>
+                            <tr>
+                                <td>{{ item.name }}</td>
+                                <td>{{ item.price }} ر.س</td>
+                                <td>{{ item.quantity }}</td>
+                                <td style="color: #60a5fa; font-weight: bold;">{{ item.total }} ر.س</td>
+                                <td><a href="/remove-from-cart/{{ item.id }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">حذف</a></td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
 
-            <div class="bg-white p-6 rounded-xl shadow-md flex justify-between items-center">
-                <div class="text-xl font-bold text-gray-800">
-                    المجموع الكلي: <span class="text-blue-600">{{ total_price }} ر.س</span>
+                <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div style="font-size: 20px; font-weight: bold;">
+                        المجموع الكلي: <span style="color: #60a5fa;">{{ total_price }} ر.س</span>
+                    </div>
+                    <button onclick="payWithMoyasar({{ total_price }})" class="btn" style="background-color: #16a34a; font-size: 16px; padding: 12px 25px;">إتمام الدفع عبر ميسر</button>
                 </div>
-                <button onclick="payWithMoyasar({{ total_price }})" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-bold text-lg">إتمام الدفع عبر ميسر</button>
-            </div>
-        {% else %}
-            <div class="bg-white p-12 rounded-xl shadow-md text-center">
-                <p class="text-gray-500 text-lg mb-4">سلة المشتريات فارغة حالياً.</p>
-                <a href="/" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-bold">تصفح المنتجات</a>
-            </div>
-        {% endif %}
+            {% else %}
+                <p style="text-align: center; color: #94a3b8; padding: 20px;">سلة المشتريات فارغة حالياً.</p>
+            {% endif %}
+        </div>
     </div>
 
     <script>
@@ -375,15 +410,19 @@ SUCCESS_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نجاح الدفع</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; }
+        .card { background: #1e293b; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: center; max-width: 450px; width: 100%; box-sizing: border-box; }
+        .btn { background-color: #2563eb; color: white; padding: 12px 25px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: bold; margin-top: 20px; }
+    </style>
 </head>
-<body class="bg-gray-50 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md text-center">
-        <div class="text-green-500 text-6xl mb-4">✅</div>
-        <h2 class="text-2xl font-bold mb-2 text-gray-800">تمت عملية الدفع بنجاح!</h2>
-        <p class="text-gray-600 mb-6">شكراً لك، تم تسجّيل طلبك ومحتوياته وحفظه بنظام المتجر.</p>
-        <p class="text-sm text-gray-500 mb-6">رقم عملية الدفع: <span class="font-mono font-bold">{{ payment_id }}</span></p>
-        <a href="/" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-bold block">العودة للمتجر الرئيسي</a>
+<body>
+    <div class="card">
+        <div style="font-size: 50px; margin-bottom: 10px;">✅</div>
+        <h2 style="color: #38bdf8; margin-top: 0;">تمت عملية الدفع بنجاح!</h2>
+        <p style="color: #94a3b8;">شكراً لك، تم تسجيل طلبك وحفظه بنظام المتجر بنجاح.</p>
+        <p style="font-size: 13px; color: #64748b; font-family: monospace;">رقم العملية: {{ payment_id }}</p>
+        <a href="/" class="btn">العودة للمتجر الرئيسي</a>
     </div>
 </body>
 </html>
@@ -396,52 +435,54 @@ ORDERS_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>إدارة الطلبات</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #0f172a; color: #fff; padding: 15px; margin: 0; box-sizing: border-box; }
+        .container { max-width: 800px; margin: auto; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h1, h2 { text-align: center; color: #38bdf8; }
+        .btn { background-color: #2563eb; color: white; padding: 8px 15px; border-radius: 6px; text-decoration: none; display: inline-block; font-size: 14px; }
+        .order-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+    </style>
 </head>
-<body class="bg-gray-50 font-sans">
-    <nav class="bg-blue-600 text-white shadow-lg">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="/" class="text-2xl font-bold">🛒 المتجر الذكي</a>
-            <a href="/" class="bg-blue-700 px-4 py-2 rounded-lg hover:bg-blue-800 transition">العودة للمتجر</a>
+<body>
+    <div class="container">
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h2 style="margin: 0;">📋 سجل الطلبات (لوحة المدير)</h2>
+            <a href="/" class="btn">العودة للمتجر</a>
         </div>
-    </nav>
 
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 class="text-2xl font-bold mb-6 text-gray-800">📋 سجل الطلبات وتفاصيلها (لوحة المدير)</h1>
         {% if orders %}
-            <div class="space-y-6">
+            <div class="card">
                 {% for order in orders %}
-                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <div class="flex justify-between items-center border-b pb-4 mb-4">
+                    <div class="order-box">
+                        <div class="order-header">
                             <div>
-                                <span class="text-lg font-bold text-blue-600">طلب #{{ order.id }}</span>
-                                <span class="text-gray-500 text-sm mr-4">المستخدم: {{ order.username }}</span>
+                                <span style="font-weight: bold; color: #38bdf8;">طلب #{{ order.id }}</span>
+                                <span style="color: #94a3b8; font-size: 14px; margin-right: 15px;">المستخدم: {{ order.username }}</span>
                             </div>
-                            <div class="text-left">
-                                <span class="font-bold text-gray-800 text-lg">{{ order.total_amount }} ر.س</span>
-                                <p class="text-xs text-gray-400">{{ order.created_at }}</p>
+                            <div style="text-align: left;">
+                                <span style="font-weight: bold; color: #60a5fa; font-size: 18px;">{{ order.total_amount }} ر.س</span>
+                                <div style="font-size: 12px; color: #64748b;">{{ order.created_at }}</div>
                             </div>
                         </div>
-                        <div class="mb-4">
-                            <h4 class="text-sm font-bold text-gray-700 mb-2">المنتجات المطلوبة:</h4>
-                            <ul class="bg-gray-50 rounded-lg p-3 space-y-2">
+                        <div style="font-size: 14px; color: #cbd5e1;">
+                            <strong>المنتجات:</strong>
+                            <ul style="margin: 5px 0 0 0; padding-right: 20px;">
                                 {% for item in order.items %}
-                                    <li class="flex justify-between text-sm text-gray-700 border-b pb-1 last:border-0">
-                                        <span>{{ item[0] }} (الكمية: {{ item[2] }})</span>
-                                        <span class="font-semibold">{{ item[1] * item[2] }} ر.س</span>
-                                    </li>
+                                    <li>{{ item[0] }} (الكمية: {{ item[2] }}) - <span style="color: #60a5fa;">{{ item[1] * item[2] }} ر.س</span></li>
                                 {% endfor %}
                             </ul>
                         </div>
-                        <div class="text-xs text-gray-500 font-mono">
-                            رقم عملية الدفع: {{ order.payment_id }}
+                        <div style="font-size: 11px; color: #64748b; margin-top: 10px; font-family: monospace;">
+                            رقم الدفع: {{ order.payment_id }}
                         </div>
                     </div>
                 {% endfor %}
             </div>
         {% else %}
-            <div class="bg-white p-12 rounded-xl shadow-md text-center">
-                <p class="text-gray-500 text-lg">لا توجد طلبات مسجلة حتى الآن.</p>
+            <div class="card">
+                <p style="text-align: center; color: #94a3b8;">لا توجد طلبات مسجلة حتى الآن.</p>
             </div>
         {% endif %}
     </div>
@@ -456,16 +497,9 @@ def check_admin():
 @app.route('/')
 def index():
     try:
-        search_query = request.args.get('q', '').strip()
         conn = sqlite3.connect('store.db')
         cursor = conn.cursor()
-        
-        if search_query:
-            cursor.execute('SELECT id, name, quantity, price, vendor, image FROM products WHERE name LIKE ? OR vendor LIKE ?', 
-                           (f'%{search_query}%', f'%{search_query}%'))
-        else:
-            cursor.execute('SELECT id, name, quantity, price, vendor, image FROM products')
-            
+        cursor.execute('SELECT id, name, quantity, price, vendor, image FROM products')
         products = cursor.fetchall()
         conn.close()
         
@@ -476,9 +510,9 @@ def index():
         
         is_admin = check_admin()
         
-        return render_template_string(INDEX_TEMPLATE, products=products, cart_count=cart_count, search_query=search_query, is_admin=is_admin)
+        return render_template_string(INDEX_TEMPLATE, products=products, cart_count=cart_count, is_admin=is_admin)
     except Exception as e:
-        return f"حدث خطأ في الصفحة الرئيسية: {str(e)}"
+        return f"حدث خطأ: {str(e)}"
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -544,7 +578,7 @@ def add_product():
         conn.close()
         return redirect(url_for('index'))
     except Exception as e:
-        return f"خطأ أثناء إضافة المنتج: {str(e)}"
+        return f"خطأ أثناء الإضافة: {str(e)}"
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product(product_id):
@@ -560,7 +594,10 @@ def edit_product(product_id):
         price = request.form.get('price')
         vendor = request.form.get('vendor')
         
-        image_filename = request.form.get('existing_image')
+        cursor.execute('SELECT image FROM products WHERE id = ?', (product_id,))
+        old_img = cursor.fetchone()
+        image_filename = old_img[0] if old_img else None
+
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename != '':
@@ -593,7 +630,7 @@ def delete_product(product_id):
         conn.close()
         return redirect(url_for('index'))
     except Exception as e:
-        return f"خطأ أثناء حذف المنتج: {str(e)}"
+        return f"خطأ في الحذف: {str(e)}"
 
 @app.route('/add-to-cart/<int:product_id>')
 def add_to_cart(product_id):
@@ -634,14 +671,13 @@ def view_cart():
                     'name': product[1],
                     'price': product[2],
                     'quantity': quantity,
-                    'total': item_total,
-                    'vendor': product[3]
+                    'total': item_total
                 })
                 
         conn.close()
         return render_template_string(CART_TEMPLATE, cart_items=cart_items, total_price=total_price)
     except Exception as e:
-        return f"خطأ في عرض السلة: {str(e)}"
+        return f"خطأ في السلة: {str(e)}"
 
 @app.route('/remove-from-cart/<int:product_id>')
 def remove_from_cart(product_id):
@@ -677,7 +713,6 @@ def create_payment():
         
         moyasar_url = "https://api.moyasar.com/v1/payments"
         api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
-        
         callback_url = request.host_url + "payment-callback"
         
         payload = {
@@ -687,13 +722,8 @@ def create_payment():
             "callback_url": callback_url
         }
         
-        headers = {
-            "Content-Type": "application/json"
-        }
-        
-        response = requests.post(moyasar_url, json=payload, headers=headers, auth=(api_key, ""))
+        response = requests.post(moyasar_url, json=payload, headers={"Content-Type": "application/json"}, auth=(api_key, ""))
         return jsonify(response.json())
-        
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -732,14 +762,13 @@ def payment_callback():
                 
             conn.commit()
             conn.close()
-            
             session.pop('cart', None)
         except Exception as e:
             print("Order Save Error:", e)
             
         return render_template_string(SUCCESS_TEMPLATE, payment_id=payment_id)
     else:
-        return "فشلت عملية الدفع أو تم إلغاؤها من قبل البنك."
+        return "فشلت عملية الدفع أو تم إلغاؤها."
 
 @app.route('/orders')
 def view_orders():
