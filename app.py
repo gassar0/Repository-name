@@ -36,6 +36,16 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS order_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER,
+                product_name TEXT,
+                price REAL,
+                quantity INTEGER,
+                FOREIGN KEY (order_id) REFERENCES orders (id)
+            )
+        ''')
         conn.commit()
         conn.close()
     except Exception as e:
@@ -346,7 +356,7 @@ SUCCESS_TEMPLATE = '''
     <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md text-center">
         <div class="text-green-500 text-6xl mb-4">✅</div>
         <h2 class="text-2xl font-bold mb-2 text-gray-800">تمت عملية الدفع بنجاح!</h2>
-        <p class="text-gray-600 mb-6">شكراً لك، تم تسجّيل طلبك وحفظه بنظام المتجر.</p>
+        <p class="text-gray-600 mb-6">شكراً لك، تم تسجّيل طلبك ومحتوياته وحفظه بنظام المتجر.</p>
         <p class="text-sm text-gray-500 mb-6">رقم عملية الدفع: <span class="font-mono font-bold">{{ payment_id }}</span></p>
         <a href="/" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-bold block">العودة للمتجر الرئيسي</a>
     </div>
@@ -372,31 +382,37 @@ ORDERS_TEMPLATE = '''
     </nav>
 
     <div class="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 class="text-2xl font-bold mb-6 text-gray-800">📋 سجل الطلبات (لوحة المدير)</h1>
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">📋 سجل الطلبات وتفاصيلها (لوحة المدير)</h1>
         {% if orders %}
-            <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                <table class="w-full text-right border-collapse">
-                    <thead>
-                        <tr class="bg-gray-100 border-b">
-                            <th class="p-4">رقم الطلب</th>
-                            <th class="p-4">المستخدم</th>
-                            <th class="p-4">المبلغ الإجمالي</th>
-                            <th class="p-4">رقم عملية الدفع</th>
-                            <th class="p-4">التاريخ والوقت</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for order in orders %}
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="p-4 font-semibold">#{{ order[0] }}</td>
-                                <td class="p-4">{{ order[1] }}</td>
-                                <td class="p-4 font-bold text-blue-600">{{ order[2] }} ر.س</td>
-                                <td class="p-4 font-mono text-sm text-gray-600">{{ order[3] }}</td>
-                                <td class="p-4 text-sm text-gray-500">{{ order[4] }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="space-y-6">
+                {% for order in orders %}
+                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                        <div class="flex justify-between items-center border-b pb-4 mb-4">
+                            <div>
+                                <span class="text-lg font-bold text-blue-600">طلب #{{ order.id }}</span>
+                                <span class="text-gray-500 text-sm mr-4">المستخدم: {{ order.username }}</span>
+                            </div>
+                            <div class="text-left">
+                                <span class="font-bold text-gray-800 text-lg">{{ order.total_amount }} ر.س</span>
+                                <p class="text-xs text-gray-400">{{ order.created_at }}</p>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <h4 class="text-sm font-bold text-gray-700 mb-2">المنتجات المطلوبة:</h4>
+                            <ul class="bg-gray-50 rounded-lg p-3 space-y-2">
+                                {% for item in order.items %}
+                                    <li class="flex justify-between text-sm text-gray-700 border-b pb-1 last:border-0">
+                                        <span>{{ item[0] }} (الكمية: {{ item[2] }})</span>
+                                        <span class="font-semibold">{{ item[1] * item[2] }} ر.س</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="text-xs text-gray-500 font-mono">
+                            رقم عملية الدفع: {{ order.payment_id }}
+                        </div>
+                    </div>
+                {% endfor %}
             </div>
         {% else %}
             <div class="bg-white p-12 rounded-xl shadow-md text-center">
@@ -653,14 +669,27 @@ def payment_callback():
             cursor = conn.cursor()
             
             total_amount = 0
+            order_items_data = []
+            
             for product_id, qty in cart.items():
-                cursor.execute('SELECT price FROM products WHERE id = ?', (product_id,))
+                cursor.execute('SELECT name, price FROM products WHERE id = ?', (product_id,))
                 prod = cursor.fetchone()
                 if prod:
-                    total_amount += prod[0] * int(qty)
+                    p_name, p_price = prod[0], prod[1]
+                    item_total = p_price * int(qty)
+                    total_amount += item_total
+                    order_items_data.append((p_name, p_price, int(qty)))
             
+            # حفظ الطلب الرئيسي
             cursor.execute('INSERT INTO orders (username, total_amount, payment_id, status) VALUES (?, ?, ?, ?)',
                            (username, total_amount, payment_id, 'paid'))
+            order_id = cursor.lastrowid
+            
+            # حفظ تفاصيل المنتجات الخاصة بالطلب
+            for item in order_items_data:
+                cursor.execute('INSERT INTO order_items (order_id, product_name, price, quantity) VALUES (?, ?, ?, ?)',
+                               (order_id, item[0], item[1], item[2]))
+                
             conn.commit()
             conn.close()
             
@@ -681,7 +710,22 @@ def view_orders():
         conn = sqlite3.connect('store.db')
         cursor = conn.cursor()
         cursor.execute('SELECT id, username, total_amount, payment_id, created_at FROM orders ORDER BY id DESC')
-        orders = cursor.fetchall()
+        raw_orders = cursor.fetchall()
+        
+        orders = []
+        for row in raw_orders:
+            order_id = row[0]
+            cursor.execute('SELECT product_name, price, quantity FROM order_items WHERE order_id = ?', (order_id,))
+            items = cursor.fetchall()
+            orders.append({
+                'id': order_id,
+                'username': row[1],
+                'total_amount': row[2],
+                'payment_id': row[3],
+                'created_at': row[4],
+                'items': items
+            })
+            
         conn.close()
         return render_template_string(ORDERS_TEMPLATE, orders=orders)
     except Exception as e:
