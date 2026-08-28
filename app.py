@@ -1,10 +1,15 @@
 import os
 import sqlite3
 from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify, make_response
+from werkzeug.utils import secure_filename
 import requests
 
 app = Flask(__name__)
 app.secret_key = 'smart_store_secret_key_12345'
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
     try:
@@ -23,9 +28,16 @@ def init_db():
                 name TEXT NOT NULL,
                 quantity INTEGER NOT NULL,
                 price REAL NOT NULL,
-                vendor TEXT
+                vendor TEXT,
+                image TEXT
             )
         ''')
+        # التأكد من وجود عمود الصورة لو القاعدة قديمة
+        try:
+            cursor.execute('ALTER TABLE products ADD COLUMN image TEXT')
+        except sqlite3.OperationalError:
+            pass
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,7 +101,7 @@ INDEX_TEMPLATE = '''
             <div class="bg-white p-6 rounded-xl shadow-md h-fit">
                 <h2 class="text-xl font-bold mb-4 text-gray-800">➕ إضافة منتج جديد</h2>
                 {% if is_admin %}
-                    <form action="/add-product" method="POST" class="space-y-4">
+                    <form action="/add-product" method="POST" enctype="multipart/form-data" class="space-y-4">
                         <div>
                             <label class="block text-gray-700 mb-1">اسم المنتج</label>
                             <input type="text" name="name" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -106,11 +118,15 @@ INDEX_TEMPLATE = '''
                             <label class="block text-gray-700 mb-1">البائع</label>
                             <input type="text" name="vendor" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">صورة المنتج</label>
+                            <input type="file" name="image" accept="image/*" class="w-full border rounded-lg px-3 py-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        </div>
                         <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">إضافة المنتج</button>
                     </form>
                 {% else %}
                     <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-center text-sm">
-                        عذراً، لوحة إضافة المنتجات مخصصة للمدير (الأدمن) فقط. سجل الدخول بحساب المدير للتحكم الكامل.
+                        عذراً، لوحة إضافة المنتجات مخصصة للمدير (الأدمن) فقط.
                     </div>
                 {% endif %}
             </div>
@@ -135,6 +151,11 @@ INDEX_TEMPLATE = '''
                             {% for product in products %}
                                 <div class="border rounded-lg p-4 flex flex-col justify-between bg-gray-50 hover:shadow-md transition">
                                     <div>
+                                        {% if product[5] %}
+                                            <img src="{{ url_for('static', filename='uploads/' + product[5]) }}" alt="{{ product[1] }}" class="w-full h-40 object-cover rounded-lg mb-3">
+                                        {% else %}
+                                            <div class="w-full h-40 bg-gray-200 rounded-lg mb-3 flex items-center justify-center text-gray-400 text-sm">لا توجد صورة</div>
+                                        {% endif %}
                                         <h3 class="font-bold text-lg text-gray-800">{{ product[1] }}</h3>
                                         <p class="text-gray-600 text-sm">البائع: {{ product[4] or 'غير متوفر' }}</p>
                                         <p class="text-blue-600 font-bold mt-2 text-xl">{{ product[3] }} ر.س</p>
@@ -233,7 +254,7 @@ EDIT_TEMPLATE = '''
 <body class="bg-gray-100 flex items-center justify-center h-screen">
     <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
         <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">✏️ تعديل بيانات المنتج</h2>
-        <form method="POST" class="space-y-4">
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
             <div>
                 <label class="block text-gray-700 mb-1">اسم المنتج</label>
                 <input type="text" name="name" value="{{ product[1] }}" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -249,6 +270,10 @@ EDIT_TEMPLATE = '''
             <div>
                 <label class="block text-gray-700 mb-1">البائع</label>
                 <input type="text" name="vendor" value="{{ product[4] or '' }}" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 mb-1">تحديث صورة المنتج (اختياري)</label>
+                <input type="file" name="image" accept="image/*" class="w-full border rounded-lg px-3 py-2 text-sm text-gray-500">
             </div>
             <div class="flex gap-2 pt-2">
                 <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-bold">حفظ التعديلات</button>
@@ -436,10 +461,10 @@ def index():
         cursor = conn.cursor()
         
         if search_query:
-            cursor.execute('SELECT * FROM products WHERE name LIKE ? OR vendor LIKE ?', 
+            cursor.execute('SELECT id, name, quantity, price, vendor, image FROM products WHERE name LIKE ? OR vendor LIKE ?', 
                            (f'%{search_query}%', f'%{search_query}%'))
         else:
-            cursor.execute('SELECT * FROM products')
+            cursor.execute('SELECT id, name, quantity, price, vendor, image FROM products')
             
         products = cursor.fetchall()
         conn.close()
@@ -503,10 +528,18 @@ def add_product():
         price = request.form.get('price')
         vendor = request.form.get('vendor')
         
+        image_filename = None
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                image_filename = filename
+        
         conn = sqlite3.connect('store.db')
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)', 
-                       (name, quantity, price, vendor))
+        cursor.execute('INSERT INTO products (name, quantity, price, vendor, image) VALUES (?, ?, ?, ?, ?)', 
+                       (name, quantity, price, vendor, image_filename))
         conn.commit()
         conn.close()
         return redirect(url_for('index'))
@@ -520,19 +553,28 @@ def edit_product(product_id):
         
     conn = sqlite3.connect('store.db')
     cursor = conn.cursor()
+    
     if request.method == 'POST':
         name = request.form.get('name')
         quantity = request.form.get('quantity')
         price = request.form.get('price')
         vendor = request.form.get('vendor')
         
-        cursor.execute('UPDATE products SET name = ?, quantity = ?, price = ?, vendor = ? WHERE id = ?',
-                       (name, quantity, price, vendor, product_id))
+        image_filename = request.form.get('existing_image')
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                image_filename = filename
+
+        cursor.execute('UPDATE products SET name = ?, quantity = ?, price = ?, vendor = ?, image = ? WHERE id = ?',
+                       (name, quantity, price, vendor, image_filename, product_id))
         conn.commit()
         conn.close()
         return redirect(url_for('index'))
     
-    cursor.execute('SELECT * FROM products WHERE id = ?', (product_id,))
+    cursor.execute('SELECT id, name, quantity, price, vendor, image FROM products WHERE id = ?', (product_id,))
     product = cursor.fetchone()
     conn.close()
     if not product:
@@ -582,18 +624,18 @@ def view_cart():
         total_price = 0
         
         for product_id, quantity in cart.items():
-            cursor.execute('SELECT * FROM products WHERE id = ?', (product_id,))
+            cursor.execute('SELECT id, name, price, vendor FROM products WHERE id = ?', (product_id,))
             product = cursor.fetchone()
             if product:
-                item_total = product[3] * int(quantity)
+                item_total = product[2] * int(quantity)
                 total_price += item_total
                 cart_items.append({
                     'id': product[0],
                     'name': product[1],
-                    'price': product[3],
+                    'price': product[2],
                     'quantity': quantity,
                     'total': item_total,
-                    'vendor': product[4]
+                    'vendor': product[3]
                 })
                 
         conn.close()
@@ -680,12 +722,10 @@ def payment_callback():
                     total_amount += item_total
                     order_items_data.append((p_name, p_price, int(qty)))
             
-            # حفظ الطلب الرئيسي
             cursor.execute('INSERT INTO orders (username, total_amount, payment_id, status) VALUES (?, ?, ?, ?)',
                            (username, total_amount, payment_id, 'paid'))
             order_id = cursor.lastrowid
             
-            # حفظ تفاصيل المنتجات الخاصة بالطلب
             for item in order_items_data:
                 cursor.execute('INSERT INTO order_items (order_id, product_name, price, quantity) VALUES (?, ?, ?, ?)',
                                (order_id, item[0], item[1], item[2]))
@@ -693,7 +733,6 @@ def payment_callback():
             conn.commit()
             conn.close()
             
-            # تفريغ السلة بعد نجاح الدفع
             session.pop('cart', None)
         except Exception as e:
             print("Order Save Error:", e)
