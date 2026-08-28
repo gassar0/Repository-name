@@ -26,6 +26,16 @@ def init_db():
                 vendor TEXT
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                total_amount REAL NOT NULL,
+                payment_id TEXT,
+                status TEXT DEFAULT 'completed',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         conn.commit()
         conn.close()
     except Exception as e:
@@ -49,6 +59,9 @@ INDEX_TEMPLATE = '''
             <div class="flex items-center gap-4">
                 <a href="/cart" class="bg-blue-700 px-4 py-2 rounded-lg hover:bg-blue-800 transition">السلة ({{ cart_count }})</a>
                 <a href="/export-csv" class="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 transition">تصدير CSV</a>
+                {% if is_admin %}
+                    <a href="/orders" class="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700 transition">الطلبات</a>
+                {% endif %}
                 {% if session.get('username') %}
                     <span class="font-semibold">أهلاً، {{ session['username'] }}</span>
                     <a href="/logout" class="bg-red-500 px-3 py-1 rounded hover:bg-red-600 transition">خروج</a>
@@ -320,6 +333,81 @@ CART_TEMPLATE = '''
 </html>
 '''
 
+SUCCESS_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نجاح الدفع</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md text-center">
+        <div class="text-green-500 text-6xl mb-4">✅</div>
+        <h2 class="text-2xl font-bold mb-2 text-gray-800">تمت عملية الدفع بنجاح!</h2>
+        <p class="text-gray-600 mb-6">شكراً لك، تم تسجّيل طلبك وحفظه بنظام المتجر.</p>
+        <p class="text-sm text-gray-500 mb-6">رقم عملية الدفع: <span class="font-mono font-bold">{{ payment_id }}</span></p>
+        <a href="/" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-bold block">العودة للمتجر الرئيسي</a>
+    </div>
+</body>
+</html>
+'''
+
+ORDERS_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الطلبات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/" class="text-2xl font-bold">🛒 المتجر الذكي</a>
+            <a href="/" class="bg-blue-700 px-4 py-2 rounded-lg hover:bg-blue-800 transition">العودة للمتجر</a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">📋 سجل الطلبات (لوحة المدير)</h1>
+        {% if orders %}
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 border-b">
+                            <th class="p-4">رقم الطلب</th>
+                            <th class="p-4">المستخدم</th>
+                            <th class="p-4">المبلغ الإجمالي</th>
+                            <th class="p-4">رقم عملية الدفع</th>
+                            <th class="p-4">التاريخ والوقت</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="p-4 font-semibold">#{{ order[0] }}</td>
+                                <td class="p-4">{{ order[1] }}</td>
+                                <td class="p-4 font-bold text-blue-600">{{ order[2] }} ر.س</td>
+                                <td class="p-4 font-mono text-sm text-gray-600">{{ order[3] }}</td>
+                                <td class="p-4 text-sm text-gray-500">{{ order[4] }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="bg-white p-12 rounded-xl shadow-md text-center">
+                <p class="text-gray-500 text-lg">لا توجد طلبات مسجلة حتى الآن.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
+'''
+
 def check_admin():
     username = str(session.get('username', '')).strip().lower()
     return 'mmm319' in username
@@ -532,10 +620,13 @@ def create_payment():
         moyasar_url = "https://api.moyasar.com/v1/payments"
         api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
         
+        callback_url = request.host_url + "payment-callback"
+        
         payload = {
             "amount": int(float(amount) * 100),
             "currency": "SAR",
-            "description": "Smart Store Order"
+            "description": "Smart Store Order",
+            "callback_url": callback_url
         }
         
         headers = {
@@ -547,6 +638,54 @@ def create_payment():
         
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/payment-callback')
+def payment_callback():
+    payment_id = request.args.get('id')
+    status = request.args.get('status')
+    
+    if status == 'paid':
+        try:
+            username = session.get('username', 'زائر')
+            cart = session.get('cart', {})
+            
+            conn = sqlite3.connect('store.db')
+            cursor = conn.cursor()
+            
+            total_amount = 0
+            for product_id, qty in cart.items():
+                cursor.execute('SELECT price FROM products WHERE id = ?', (product_id,))
+                prod = cursor.fetchone()
+                if prod:
+                    total_amount += prod[0] * int(qty)
+            
+            cursor.execute('INSERT INTO orders (username, total_amount, payment_id, status) VALUES (?, ?, ?, ?)',
+                           (username, total_amount, payment_id, 'paid'))
+            conn.commit()
+            conn.close()
+            
+            # تفريغ السلة بعد نجاح الدفع
+            session.pop('cart', None)
+        except Exception as e:
+            print("Order Save Error:", e)
+            
+        return render_template_string(SUCCESS_TEMPLATE, payment_id=payment_id)
+    else:
+        return "فشلت عملية الدفع أو تم إلغاؤها من قبل البنك."
+
+@app.route('/orders')
+def view_orders():
+    if not check_admin():
+        return redirect(url_for('login'))
+    try:
+        conn = sqlite3.connect('store.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, username, total_amount, payment_id, created_at FROM orders ORDER BY id DESC')
+        orders = cursor.fetchall()
+        conn.close()
+        return render_template_string(ORDERS_TEMPLATE, orders=orders)
+    except Exception as e:
+        return f"خطأ في عرض الطلبات: {str(e)}"
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
