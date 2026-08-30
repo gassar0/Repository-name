@@ -7,6 +7,7 @@ import urllib.parse
 import urllib.error
 import json
 import traceback
+import threading
 from datetime import datetime
 from flask import Flask, render_template_string, request, jsonify, redirect, url_for, session, Response
 from werkzeug.utils import secure_filename
@@ -447,9 +448,13 @@ def delete_product(id):
 def checkout():
     try:
         customer_email = request.form.get('email', 'mmmmm_mmmmm319@yahoo.com')
-        total = float(request.form.get('total', 0.0))
+        total_val = request.form.get('total', '0')
+        try:
+            total = float(total_val)
+        except ValueError:
+            total = 0.0
+            
         cart = session.get('cart', [])
-        
         if not cart:
             return redirect(url_for('index'))
             
@@ -464,7 +469,8 @@ def checkout():
         items_summary = "\n".join([f"- {item['name']} ({item['price']} ر.س)" for item in cart])
         msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 العميل: {customer_email}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
         
-        send_telegram_order_notification(msg, order_id)
+        # إرسال إشعار تيليجرام في الخلفية حتى يتم تسجيل الطلب وتحويلك فوراً بدون أي تعليق
+        threading.Thread(target=send_telegram_order_notification, args=(msg, order_id)).start()
         
         session['cart'] = []
     except Exception as e:
