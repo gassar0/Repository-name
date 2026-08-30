@@ -19,9 +19,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_Name = 'store.db'
 
-# إعدادات بوت تيليجرام (ضع التوكن والـ Chat ID هنا لتفعيل الإشعارات الفورية)
-TELEGRAM_BOT_TOKEN = ''  
-TELEGRAM_CHAT_ID = ''    
+# إعدادات بوت تيليجرام (تم ربطها برقمك وبوتك الخاص بنجاح)
+TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn808KuiqaVLQSERNxY2rstA8SF8JQ'  
+TELEGRAM_CHAT_ID = '8508616708'    
 
 def send_telegram_notification(message):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -570,6 +570,7 @@ def export_csv():
     for row in rows:
         writer.writerow(row)
         
+    Response = globals().get('Response')
     response = Response(output.getvalue(), mimetype='text/csv')
     response.headers["Content-Disposition"] = "attachment; filename=products_export.csv"
     return response
