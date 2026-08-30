@@ -15,24 +15,24 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = 'smart_store_secret_key_12345'
 
-# ط¥ط¹ط¯ط§ط¯ ظ…ط¬ظ„ط¯ ط±ظپط¹ ط§ظ„طµظˆط±
+# إعداد مجلد رفع الصور
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_Name = 'store.db'
 
-# ط¥ط¹ط¯ط§ط¯ط§طھ ط¨ظˆطھ طھظٹظ„ظٹط¬ط±ط§ظ…
+# إعدادات بوت تيليجرام
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
 TELEGRAM_CHAT_ID = '8508616708'
 
-# ظ‚ط§ظ„ط¨ طµظپط­ط© ط§ظ„ط¯ط®ظˆظ„ ظˆط§ظ„طھط³ط¬ظٹظ„
+# قالب صفحة الدخول والتسجيل
 AUTH_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>{% if mode == 'login' %}طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„{% else %}ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ ط¬ط¯ظٹط¯{% endif %}</title>
+    <title>{% if mode == 'login' %}تسجيل الدخول{% else %}إنشاء حساب جديد{% endif %}</title>
     <style>
         body { background-color: #0d1117; color: #c9d1d9; font-family: Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: #161b22; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 350px; text-align: center; border: 1px solid #30363d; }
@@ -45,32 +45,32 @@ AUTH_HTML_TEMPLATE = """
 </head>
 <body>
     <div class="card">
-        <h2>{% if mode == 'login' %}ًں”‘ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„{% else %}ًں“‌ ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ ط¬ط¯ظٹط¯{% endif %}</h2>
+        <h2>{% if mode == 'login' %}🔑 تسجيل الدخول{% else %}📝 إنشاء حساب جديد{% endif %}</h2>
         {% if error %}<div class="error">{{ error }}</div>{% endif %}
         <form method="POST">
-            <input type="text" name="username" placeholder="ط§ط³ظ… ط§ظ„ظ…ط³طھط®ط¯ظ…" required autocomplete="off"><br>
-            <input type="password" name="password" placeholder="ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±" required><br>
-            <button type="submit">{% if mode == 'login' %}ط¯ط®ظˆظ„{% else %}طھط³ط¬ظٹظ„{% endif %}</button>
+            <input type="text" name="username" placeholder="اسم المستخدم" required autocomplete="off"><br>
+            <input type="password" name="password" placeholder="كلمة المرور" required><br>
+            <button type="submit">{% if mode == 'login' %}دخول{% else %}تسجيل{% endif %}</button>
         </form>
         {% if mode == 'login' %}
-            <a href="{{ url_for('register') }}">ظ„ظٹط³ ظ„ط¯ظٹظƒ ط­ط³ط§ط¨طں ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ ط¬ط¯ظٹط¯</a>
+            <a href="{{ url_for('register') }}">ليس لديك حساب؟ إنشاء حساب جديد</a>
         {% else %}
-            <a href="{{ url_for('login') }}">ظ„ط¯ظٹظƒ ط­ط³ط§ط¨ ط¨ط§ظ„ظپط¹ظ„طں طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„</a>
+            <a href="{{ url_for('login') }}">لديك حساب بالفعل؟ تسجيل الدخول</a>
         {% endif %}
-        <a href="{{ url_for('index') }}">ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ط±ط¦ظٹط³ظٹط©</a>
+        <a href="{{ url_for('index') }}">العودة للرئيسية</a>
     </div>
 </body>
 </html>
 """
 
-# ظ‚ط§ظ„ط¨ ط§ظ„ظ…طھط¬ط± ط§ظ„ط±ط¦ظٹط³ظٹ ظ…ط¹ ط§ظ„ط³ظ„ط© ظˆطھظٹظ„ظٹط¬ط±ط§ظ…
+# قالب المتجر الرئيسي مع السلة وتيليجرام
 STORE_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ط§ظ„ظ…طھط¬ط± ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ ط§ظ„ط°ظƒظٹ</title>
+    <title>المتجر الإلكتروني الذكي</title>
     <style>
         body { background-color: #0d1117; color: #c9d1d9; font-family: Tahoma, sans-serif; margin: 0; padding: 20px; direction: rtl; }
         .container { max-width: 800px; margin: auto; }
@@ -94,83 +94,83 @@ STORE_HTML_TEMPLATE = """
         <div class="user-bar">
             <div>
                 {% if user %}
-                    <span>ظ…ط±ط­ط¨ط§ظ‹طŒ <b>{{ user }}</b></span>
+                    <span>مرحباً، <b>{{ user }}</b></span>
                 {% else %}
-                    <span>ظ…ط±ط­ط¨ط§ظ‹ ط¨ظƒ ط²ط§ط¦ط±ظ†ط§ ط§ظ„ظƒط±ظٹظ…</span>
+                    <span>مرحباً بك زائرنا الكريم</span>
                 {% endif %}
             </div>
             <div>
                 {% if user %}
-                    <a href="{{ url_for('logout') }}" class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;">طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;">تسجيل الخروج</a>
                 {% else %}
-                    <a href="{{ url_for('login') }}" class="btn" style="padding: 6px 12px; font-size: 13px; margin-left: 5px;">طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„</a>
-                    <a href="{{ url_for('register') }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨</a>
+                    <a href="{{ url_for('login') }}" class="btn" style="padding: 6px 12px; font-size: 13px; margin-left: 5px;">تسجيل الدخول</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">إنشاء حساب</a>
                 {% endif %}
             </div>
         </div>
 
         <div class="card">
-            <h1>ًں›چï¸ڈ ط§ظ„ظ…طھط¬ط± ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ ط§ظ„ط°ظƒظٹ</h1>
+            <h1>🛍️ المتجر الإلكتروني الذكي</h1>
             <div style="text-align: center;">
-                <a href="{{ url_for('view_cart') }}" class="btn">ًں›’ ط¹ط±ط¶ ط³ظ„ط© ط§ظ„ط´ط±ط§ط، ({{ cart|length }})</a>
+                <a href="{{ url_for('view_cart') }}" class="btn">🛒 عرض سلة الشراء ({{ cart|length }})</a>
             </div>
         </div>
 
-        <!-- ظ‚ط³ظ… ط¹ط±ط¶ ط§ظ„ط³ظ„ط© -->
+        <!-- قسم عرض السلة -->
         {% if show_cart %}
         <div class="card" style="border-color: #58a6ff;">
-            <h2>ًں›’ ط³ظ„ط© ط§ظ„ط´ط±ط§ط، ط§ظ„ط®ط§طµط© ط¨ظƒ</h2>
+            <h2>🛒 سلة الشراء الخاصة بك</h2>
             {% if cart %}
                 <table>
                     <tr>
-                        <th>ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬</th>
-                        <th>ط§ظ„ط³ط¹ط±</th>
-                        <th>ط¥ط¬ط±ط§ط،</th>
+                        <th>اسم المنتج</th>
+                        <th>السعر</th>
+                        <th>إجراء</th>
                     </tr>
                     {% set ns = namespace(total=0) %}
                     {% for item in cart %}
                     {% set ns.total = ns.total + item.price %}
                     <tr>
                         <td>{{ item.name }}</td>
-                        <td>{{ item.price }} ط±.ط³</td>
+                        <td>{{ item.price }} ر.س</td>
                         <td>
-                            <a href="{{ url_for('remove_from_cart', index=loop.index0) }}" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">ط­ط°ظپ ظ…ظ† ط§ظ„ط³ظ„ط©</a>
+                            <a href="{{ url_for('remove_from_cart', index=loop.index0) }}" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">حذف من السلة</a>
                         </td>
                     </tr>
                     {% endfor %}
                 </table>
-                <h3 style="margin-top: 15px; color: #3fb950;">ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظƒظ„ظٹ: {{ ns.total }} ط±.ط³</h3>
+                <h3 style="margin-top: 15px; color: #3fb950;">الإجمالي الكلي: {{ ns.total }} ر.س</h3>
                 
-                <form action="{{ url_for('checkout') }}" method="POST" onsubmit="alert('ًںڑ€ طھظ… ط¥ط±ط³ط§ظ„ ط§ظ„ط·ظ„ط¨ ظˆطھط³ط¬ظٹظ„ظ‡ ط¨ظ†ط¬ط§ط­!');" style="margin-top: 15px;">
-                    <input type="email" name="email" placeholder="ط¨ط±ظٹط¯ظƒ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ (ط§ط®طھظٹط§ط±ظٹ)" value="mmmmm_mmmmm319@yahoo.com">
+                <form action="{{ url_for('checkout') }}" method="POST" onsubmit="alert('🚀 تم إرسال الطلب وتسجيله بنجاح!');" style="margin-top: 15px;">
+                    <input type="email" name="email" placeholder="بريدك الإلكتروني (اختياري)" value="mmmmm_mmmmm319@yahoo.com">
                     <input type="hidden" name="total" value="{{ ns.total }}">
-                    <button type="submit" class="btn" style="width: 100%; background-color: #238636; padding: 12px; font-size: 16px;">ًںڑ€ ط¥طھظ…ط§ظ… ط§ظ„ط´ط±ط§ط، ظˆط¥ط±ط³ط§ظ„ ط§ظ„ط·ظ„ط¨ ظ„طھظٹظ„ظٹط¬ط±ط§ظ…</button>
+                    <button type="submit" class="btn" style="width: 100%; background-color: #238636; padding: 12px; font-size: 16px;">🚀 إتمام الشراء وإرسال الطلب لتيليجرام</button>
                 </form>
             {% else %}
-                <p style="text-align: center; color: #8b949e;">ط³ظ„ط© ط§ظ„ط´ط±ط§ط، ظپط§ط±ط؛ط© ط­ط§ظ„ظٹط§ظ‹.</p>
+                <p style="text-align: center; color: #8b949e;">سلة الشراء فارغة حالياً.</p>
             {% endif %}
             <div style="text-align: center; margin-top: 15px;">
-                <a href="{{ url_for('index') }}" class="btn btn-secondary">ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ظ…ظ†طھط¬ط§طھ</a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">العودة للمنتجات</a>
             </div>
         </div>
         {% endif %}
 
         <div class="card">
-            <h2>ًں”¥ ط§ظ„ظ…ظ†طھط¬ط§طھ ط§ظ„ظ…طھظˆظپط±ط©</h2>
+            <h2>🔥 المنتجات المتوفرة</h2>
             <form method="GET" action="/" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" name="search" placeholder="ط§ط¨ط­ط« ط¹ظ† ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬ ط£ظˆ ط§ظ„ط¨ط§ط¦ط¹..." value="{{ request.args.get('search', '') }}">
-                <button type="submit" class="btn" style="width: auto;">ط¨ط­ط«</button>
+                <input type="text" name="search" placeholder="ابحث عن اسم المنتج أو البائع..." value="{{ request.args.get('search', '') }}">
+                <button type="submit" class="btn" style="width: auto;">بحث</button>
             </form>
 
             {% if products %}
                 <table>
                     <tr>
-                        <th>ط§ظ„طµظˆط±ط©</th>
-                        <th>ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬</th>
-                        <th>ط§ظ„ط³ط¹ط±</th>
-                        <th>ط§ظ„ظƒظ…ظٹط©</th>
-                        <th>ط§ظ„ط¨ط§ط¦ط¹</th>
-                        <th>ط§ظ„ط¥ط¬ط±ط§ط،ط§طھ</th>
+                        <th>الصورة</th>
+                        <th>اسم المنتج</th>
+                        <th>السعر</th>
+                        <th>الكمية</th>
+                        <th>البائع</th>
+                        <th>الإجراءات</th>
                     </tr>
                     {% for p in products %}
                     <tr>
@@ -178,61 +178,61 @@ STORE_HTML_TEMPLATE = """
                             {% if p.image %}
                                 <img src="{{ url_for('static', filename='uploads/' + p.image) }}" width="45" style="border-radius: 4px;">
                             {% else %}
-                                <span style="font-size: 12px; color: #8b949e;">ظ„ط§ طھظˆط¬ط¯</span>
+                                <span style="font-size: 12px; color: #8b949e;">لا توجد</span>
                             {% endif %}
                         </td>
                         <td>{{ p.name }}</td>
-                        <td>{{ p.price }} ط±.ط³</td>
+                        <td>{{ p.price }} ر.س</td>
                         <td>{{ p.quantity }}</td>
                         <td>{{ p.seller }}</td>
                         <td>
-                            <a href="{{ url_for('add_to_cart', id=p.id) }}" class="btn" style="padding: 5px 10px; font-size: 12px; margin-bottom: 4px; display: inline-block;">ًں›’ ط´ط±ط§ط،</a>
+                            <a href="{{ url_for('add_to_cart', id=p.id) }}" class="btn" style="padding: 5px 10px; font-size: 12px; margin-bottom: 4px; display: inline-block;">🛒 شراء</a>
                             {% if user %}
-                                <a href="{{ url_for('delete_product', id=p.id) }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; display: inline-block;">ط­ط°ظپ</a>
+                                <a href="{{ url_for('delete_product', id=p.id) }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; display: inline-block;">حذف</a>
                             {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </table>
             {% else %}
-                <p style="text-align: center; color: #8b949e;">ظ„ط§ طھظˆط¬ط¯ ظ…ظ†طھط¬ط§طھ ظ…طھط§ط­ط© ط­ط§ظ„ظٹط§ظ‹.</p>
+                <p style="text-align: center; color: #8b949e;">لا توجد منتجات متاحة حالياً.</p>
             {% endif %}
         </div>
 
         {% if user %}
         <div class="card">
-            <h2>â‍• ط¥ط¶ط§ظپط© ظ…ظ†طھط¬ ط¬ط¯ظٹط¯</h2>
+            <h2>➕ إضافة منتج جديد</h2>
             <form action="{{ url_for('add_product') }}" method="POST" enctype="multipart/form-data">
-                <input type="text" name="name" placeholder="ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬" required>
-                <input type="number" name="price" placeholder="ط§ظ„ط³ط¹ط± (ط±.ط³)" step="0.01" required>
-                <input type="number" name="quantity" placeholder="ط§ظ„ظƒظ…ظٹط©" value="1" required>
-                <input type="text" name="seller" placeholder="ط§ط³ظ… ط§ظ„ط¨ط§ط¦ط¹" value="{{ user }}">
+                <input type="text" name="name" placeholder="اسم المنتج" required>
+                <input type="number" name="price" placeholder="السعر (ر.س)" step="0.01" required>
+                <input type="number" name="quantity" placeholder="الكمية" value="1" required>
+                <input type="text" name="seller" placeholder="اسم البائع" value="{{ user }}">
                 <input type="file" name="image" accept="image/*">
-                <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">ط¥ط¶ط§ظپط© ط§ظ„ظ…ظ†طھط¬ ظ„ظ„ظ…طھط¬ط±</button>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">إضافة المنتج للمتجر</button>
             </form>
         </div>
 
         <div class="card">
-            <h2>ًں“¦ ط·ظ„ط¨ط§طھ ط§ظ„ط¹ظ…ظ„ط§ط، ط§ظ„ظ…ط³ط¬ظ„ط©</h2>
+            <h2>📦 طلبات العملاء المسجلة</h2>
             {% if orders %}
                 <table>
                     <tr>
-                        <th>ط±ظ‚ظ… ط§ظ„ط·ظ„ط¨</th>
-                        <th>ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ</th>
-                        <th>ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ</th>
-                        <th>ط§ظ„ط­ط§ظ„ط©</th>
+                        <th>رقم الطلب</th>
+                        <th>البريد الإلكتروني</th>
+                        <th>الإجمالي</th>
+                        <th>الحالة</th>
                     </tr>
                     {% for o in orders %}
                     <tr>
                         <td>#{{ o.id }}</td>
                         <td>{{ o.customer_email }}</td>
-                        <td>{{ o.total }} ط±.ط³</td>
-                        <td>{{ o.status if o.status else 'ط¬ط¯ظٹط¯' }}</td>
+                        <td>{{ o.total }} ر.س</td>
+                        <td>{{ o.status if o.status else 'جديد' }}</td>
                     </tr>
                     {% endfor %}
                 </table>
             {% else %}
-                <p style="text-align: center; color: #8b949e;">ظ„ط§ طھظˆط¬ط¯ ط·ظ„ط¨ط§طھ ط­طھظ‰ ط§ظ„ط¢ظ†.</p>
+                <p style="text-align: center; color: #8b949e;">لا توجد طلبات حتى الآن.</p>
             {% endif %}
         </div>
         {% endif %}
@@ -265,7 +265,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_email TEXT,
             total REAL,
-            status TEXT DEFAULT 'ط¬ط¯ظٹط¯'
+            status TEXT DEFAULT 'جديد'
         )
     ''')
     cursor.execute('''
@@ -276,11 +276,11 @@ def init_db():
         )
     ''')
     
-    # ط§ظ„طھط£ظƒط¯ ظ…ظ† ط¥ط¶ط§ظپط© ط¹ظ…ظˆط¯ status طھظ„ظ‚ط§ط¦ظٹط§ظ‹ ظ„ظˆ ط§ظ„ط¬ط¯ظˆظ„ ظ‚ط¯ظٹظ…
+    # التأكد من إضافة عمود status تلقائياً لو الجدول قديم
     try:
-        cursor.execute("ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'ط¬ط¯ظٹط¯'")
+        cursor.execute("ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'جديد'")
     except sqlite3.OperationalError:
-        pass # ط§ظ„ط¹ظ…ظˆط¯ ظ…ظˆط¬ظˆط¯ ط¨ط§ظ„ظپط¹ظ„
+        pass # العمود موجود بالفعل
         
     conn.commit()
     conn.close()
@@ -299,8 +299,8 @@ def send_telegram_order_notification(order_details, order_id):
         "reply_markup": {
             "inline_keyboard": [
                 [
-                    {"text": "âœ… طھط£ظƒظٹط¯ ط§ظ„ط·ظ„ط¨", "callback_data": f"confirm_{order_id}"},
-                    {"text": "â‌Œ ط¥ظ„ط؛ط§ط، ط§ظ„ط·ظ„ط¨", "callback_data": f"cancel_{order_id}"}
+                    {"text": "✅ تأكيد الطلب", "callback_data": f"confirm_{order_id}"},
+                    {"text": "❌ إلغاء الطلب", "callback_data": f"cancel_{order_id}"}
                 ]
             ]
         }
@@ -335,7 +335,7 @@ def index():
     except Exception as e:
         print("--- TEMPLATE ERROR ---")
         traceback.print_exc()
-        return f"ط­ط¯ط« ط®ط·ط£: {e}", 500
+        return f"حدث خطأ: {e}", 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -352,7 +352,7 @@ def login():
             session['user'] = user['username']
             return redirect(url_for('index'))
         else:
-            error = "ط§ط³ظ… ط§ظ„ظ…ط³طھط®ط¯ظ… ط£ظˆ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± طµط­ظٹط­ط©"
+            error = "اسم المستخدم أو كلمة المرور غير صحيحة"
             
     return render_template_string(AUTH_HTML_TEMPLATE, mode='login', error=error)
 
@@ -371,7 +371,7 @@ def register():
             session['user'] = username
             return redirect(url_for('index'))
         except sqlite3.IntegrityError:
-            error = "ط§ط³ظ… ط§ظ„ظ…ط³طھط®ط¯ظ… ظ…ط³طھط®ط¯ظ… ط¨ط§ظ„ظپط¹ظ„طŒ ط§ط®طھط± ط§ط³ظ…ظ‹ط§ ط¢ط®ط±."
+            error = "اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر."
             
     return render_template_string(AUTH_HTML_TEMPLATE, mode='register', error=error)
 
@@ -422,7 +422,7 @@ def add_product():
         name = request.form.get('name')
         quantity = request.form.get('quantity', 1)
         price = request.form.get('price', 0.0)
-        seller = request.form.get('seller', session.get('user', 'ظ…ط­ظ…ط¯ ط±ط¬ط¨'))
+        seller = request.form.get('seller', session.get('user', 'محمد رجب'))
         
         image_filename = ""
         if 'image' in request.files:
@@ -468,13 +468,13 @@ def checkout():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO orders (customer_email, total, status) VALUES (?, ?, ?)", 
-                       (customer_email, total, 'ط¬ط¯ظٹط¯'))
+                       (customer_email, total, 'جديد'))
         order_id = cursor.lastrowid
         conn.commit()
         conn.close()
         
-        items_summary = "\n".join([f"- {item['name']} ({item['price']} ط±.ط³)" for item in cart])
-        msg = f"ًں›’ ط·ظ„ط¨ ط´ط±ط§ط، ط¬ط¯ظٹط¯ ط¹ط¨ط± ط§ظ„ظ…طھط¬ط±!\nًں‘¤ ط§ظ„ط¹ظ…ظٹظ„: {customer_email}\n\nط§ظ„ظ…ظ†طھط¬ط§طھ ط§ظ„ظ…ط·ظ„ظˆط¨ط©:\n{items_summary}\n\nًں’° ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظƒظ„ظٹ: {total} ط±.ط³"
+        items_summary = "\n".join([f"- {item['name']} ({item['price']} ر.س)" for item in cart])
+        msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 العميل: {customer_email}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
         
         threading.Thread(target=send_telegram_order_notification, args=(msg, order_id)).start()
         
@@ -506,20 +506,20 @@ def telegram_webhook():
             status_suffix = ""
             
             if action == 'confirm':
-                status_suffix = "\n\nâœ¨ **ط­ط§ظ„ط© ط§ظ„ط·ظ„ط¨:** طھظ… ط§ظ„طھط£ظƒظٹط¯ ط¨ظ†ط¬ط§ط­ âœ…"
-                response_text = f"طھظ… طھط£ظƒظٹط¯ ط§ظ„ط·ظ„ط¨ #{order_id} ط¨ظ†ط¬ط§ط­!"
+                status_suffix = "\n\n✨ **حالة الطلب:** تم التأكيد بنجاح ✅"
+                response_text = f"تم تأكيد الطلب #{order_id} بنجاح!"
                 if order_id != '999':
                     conn = get_db_connection()
-                    conn.execute("UPDATE orders SET status = 'ظ…ط¤ظƒط¯' WHERE id = ?", (order_id,))
+                    conn.execute("UPDATE orders SET status = 'مؤكد' WHERE id = ?", (order_id,))
                     conn.commit()
                     conn.close()
                 
             elif action == 'cancel':
-                status_suffix = "\n\nًںڑ« **ط­ط§ظ„ط© ط§ظ„ط·ظ„ط¨:** طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ط·ظ„ط¨ â‌Œ"
-                response_text = f"طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ط·ظ„ط¨ #{order_id}."
+                status_suffix = "\n\n🚫 **حالة الطلب:** تم إلغاء الطلب ❌"
+                response_text = f"تم إلغاء الطلب #{order_id}."
                 if order_id != '999':
                     conn = get_db_connection()
-                    conn.execute("UPDATE orders SET status = 'ظ…ظ„ط؛ظٹ' WHERE id = ?", (order_id,))
+                    conn.execute("UPDATE orders SET status = 'ملغي' WHERE id = ?", (order_id,))
                     conn.commit()
                     conn.close()
 
