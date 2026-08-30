@@ -1,18 +1,55 @@
-import requests
+import os
 import csv
-import io
 import sqlite3
-from flask import Flask, jsonify, make_response, render_template, request, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from io import StringIO
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
+import requests
 
 app = Flask(__name__)
-app.secret_key = 'smart_warehouse_secret_key_2026'
+app.secret_key = 'your_secret_key_here'
+
+# إعدادات بوت تيليجرام
+TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
+TELEGRAM_CHAT_ID = 'YOUR_CHAT_ID_HERE'  # ضع الchat_id الخاص بك هنا
+
+def send_telegram_notification(message):
+    if TELEGRAM_CHAT_ID != 'YOUR_CHAT_ID_HERE':
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {
+            'chat_id': TELEGRAM_CHAT_ID,
+            'text': message,
+            'parse_mode': 'Markdown'
+        }
+        try:
+            requests.post(url, json=payload)
+        except Exception as e:
+            print(f"Telegram error: {e}")
 
 def init_db():
-    conn = sqlite3.connect("store.db")
+    conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute(''' CREATE TABLE IF NOT EXISTS products ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, quantity INTEGER NOT NULL, price REAL NOT NULL, vendor TEXT ) ''')
-    cursor.execute(''' CREATE TABLE IF NOT EXISTS users ( id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL ) ''')
+    # جدول المنتجات
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price REAL NOT NULL,
+            description TEXT,
+            image TEXT
+        )
+    ''')
+    # جدول الطلبات
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            address TEXT NOT NULL,
+            total REAL NOT NULL,
+            items TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -20,153 +57,151 @@ init_db()
 
 @app.route('/')
 def index():
-    return render_template('store.html')
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM products')
+    products = cursor.fetchall()
+    conn.close()
+    return render_template('index.html', products=products)
 
-@app.route('/api/register', methods=['POST'])
-def register():
-    try:
-        data = request.get_json(silent=True) or {}
-        email = data.get('email')
-        password = data.get('password')
+@app.route('/cart')
+def cart():
+    cart_items = session.get('cart', {})
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    detailed_cart = []
+    total_price = 0
+    for product_id, quantity in cart_items.items():
+        cursor.execute('SELECT * FROM products WHERE id = ?', (product_id,))
+        product = cursor.fetchone()
+        if product:
+            item_total = product[2] * quantity
+            total_price += item_total
+            detailed_cart.append({
+                'id': product[0],
+                'name': product[1],
+                'price': product[2],
+                'image': product[4],
+                'quantity': quantity,
+                'total': item_total
+            })
+    conn.close()
+    return render_template('cart.html', cart=detailed_cart, total_price=total_price)
 
-        if not email or not password:
-            return jsonify({"message": "يرجى إدخال البريد الإلكتروني وكلمة المرور"}), 400
+@app.route('/add_to_cart/<int:product_id>', methods=['POST'])
+def add_to_cart(product_id):
+    if 'cart' not in session:
+        session['cart'] = {}
+    cart = session['cart']
+    product_id_str = str(product_id)
+    
+    if product_id_str in cart:
+        cart[product_id_str] += 1
+    else:
+        cart[product_id_str] = 1
+    session.modified = True
+    flash('تم إضافة المنتج إلى السلة بنجاح!', 'success')
+    return redirect(url_for('index'))
 
-        hashed_password = generate_password_hash(password)
+@app.route('/remove_from_cart/<int:product_id>', methods=['POST'])
+def remove_from_cart(product_id):
+    cart = session.get('cart', {})
+    product_id_str = str(product_id)
+    if product_id_str in cart:
+        del cart[product_id_str]
+        session.modified = True
+        flash('تم حذف المنتج من السلة.', 'info')
+    return redirect(url_for('cart'))
 
-        conn = sqlite3.connect("store.db")
+@app.route('/checkout', methods=['GET', 'POST'])
+def checkout():
+    if request.method == 'POST':
+        customer_name = request.form.get('name')
+        phone = request.form.get('phone')
+        address = request.form.get('address')
+        
+        cart_items = session.get('cart', {})
+        if not cart_items:
+            flash('سلة المشتريات فارغة!', 'warning')
+            return redirect(url_for('cart'))
+            
+        conn = sqlite3.connect('database.db')
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_password))
+        
+        total_price = 0
+        items_summary = []
+        for product_id, quantity in cart_items.items():
+            cursor.execute('SELECT name, price FROM products WHERE id = ?', (product_id,))
+            product = cursor.fetchone()
+            if product:
+                item_total = product[1] * quantity
+                total_price += item_total
+                items_summary.append(f"- {product[0]} (الكمية: {quantity}) - السعر: {item_total}")
+                
+        items_text = "\n".join(items_summary)
+        
+        cursor.execute('''
+            INSERT INTO orders (customer_name, phone, address, total, items)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (customer_name, phone, address, total_price, items_text))
         conn.commit()
         conn.close()
+        
+        # إرسال إشعار تيليجرام
+        msg = f"🚨 *طلب جديد تم استلامه!*\n\n👤 العميل: {customer_name}\n📞 الهاتف: {phone}\n📍 العنوان: {address}\n💰 الإجمالي: {total_price}\n\n📦 المنتجات:\n{items_text}"
+        send_telegram_notification(msg)
+        
+        # تفريغ السلة
+        session.pop('cart', None)
+        flash('تم إتمام الطلب بنجاح وتم إرسال الإشعار!', 'success')
+        return redirect(url_for('index'))
+        
+    return render_template('checkout.html')
 
-        session['user_email'] = email
-        return jsonify({"message": "تم إنشاء الحساب بنجاح"})
-    except sqlite3.IntegrityError:
-        return jsonify({"message": "البريد الإلكتروني مستخدم مسبقاً"}), 400
-    except Exception as e:
-        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    try:
-        data = request.get_json(silent=True) or {}
-        email = data.get('email')
-        password = data.get('password')
-
-        if not email or not password:
-            return jsonify({"message": "يرجى إدخال البريد الإلكتروني وكلمة المرور"}), 400
-
-        conn = sqlite3.connect("store.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT password FROM users WHERE email = ?", (email,))
-        row = cursor.fetchone()
-        conn.close()
-
-        if row and check_password_hash(row[0], password):
-            session['user_email'] = email
-            return jsonify({"message": "تم تسجيل الدخول بنجاح"})
-        else:
-            return jsonify({"message": "البيانات غير صحيحة"}), 401
-    except Exception as e:
-        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
-
-@app.route('/api/check-auth', methods=['GET'])
-def check_auth():
-    if 'user_email' in session:
-        return jsonify({"logged_in": True, "email": session['user_email']})
-    return jsonify({"logged_in": False})
-
-@app.route('/api/logout', methods=['POST'])
-def logout():
-    session.pop('user_email', None)
-    return jsonify({"message": "تم تسجيل الخروج بنجاح"})
-
-@app.route('/api/products', methods=['GET'])
-def get_products():
-    conn = sqlite3.connect("store.db")
+@app.route('/admin', methods=['GET', 'POST'])
+def admin():
+    conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, quantity, price, vendor FROM products")
-    rows = cursor.fetchall()
-    conn.close()
-    products = []
-    for row in rows:
-        products.append({
-            "id": row[0],
-            "name": row[1],
-            "quantity": row[2],
-            "price": row[3],
-            "vendor": row[4]
-        })
-    return jsonify(products)
-
-@app.route('/api/products', methods=['POST'])
-def add_product():
-    if 'user_email' not in session:
-        return jsonify({"message": "أولاً لإضافة منتجات"}), 401
-    try:
-        data = request.get_json(silent=True) or {}
-        name = data.get('name')
-        quantity = data.get('quantity', 0)
-        price = data.get('price', 0.0)
-        vendor = data.get('vendor', '')
-
-        if not name:
-            return jsonify({"message": "أدخل اسم المنتج"}), 400
-
-        conn = sqlite3.connect("store.db")
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO products (name, quantity, price, vendor) VALUES (?, ?, ?, ?)", (name, quantity, price, vendor))
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        price = float(request.form.get('price'))
+        description = request.form.get('description')
+        image = request.form.get('image', 'default.jpg')
+        
+        cursor.execute('''
+            INSERT INTO products (name, price, description, image)
+            VALUES (?, ?, ?, ?)
+        ''', (name, price, description, image))
         conn.commit()
-        conn.close()
-        return jsonify({"message": "تم إضافة المنتج بنجاح"})
-    except Exception as e:
-        return jsonify({"message": f"حدث خطأ: {str(e)}"}), 500
-
-@app.route('/api/export-excel', methods=['GET'])
-def export_excel():
-    conn = sqlite3.connect("store.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, quantity, price, vendor FROM products")
-    rows = cursor.fetchall()
+        flash('تم إضافة المنتج بنجاح!', 'success')
+        return redirect(url_for('admin'))
+        
+    cursor.execute('SELECT * FROM products')
+    products = cursor.fetchall()
+    cursor.execute('SELECT * FROM orders ORDER BY created_at DESC')
+    orders = cursor.fetchall()
     conn.close()
+    return render_template('admin.html', products=products, orders=orders)
 
-    csv_data = "اسم المنتج,الكمية,السعر (ر.س),البائع\n"
-    for row in rows:
-        csv_data += f"{row[0]},{row[1]},{row[2]},{row[3]}\n"
-
-    response = make_response(csv_data.encode('utf-8-sig'))
-    response.headers["Content-Disposition"] = "attachment; filename=products.csv"
-    response.headers["Content-Type"] = "text/csv; charset=utf-8-sig"
+@app.route('/export_csv')
+def export_csv():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, customer_name, phone, address, total, items, created_at FROM orders')
+    orders = cursor.fetchall()
+    conn.close()
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Order ID', 'Customer Name', 'Phone', 'Address', 'Total', 'Items', 'Created At'])
+    for order in orders:
+        writer.writerow(order)
+        
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename=orders_report.csv'
     return response
 
-@app.route('/create-payment', methods=['POST'])
-def create_payment():
-    try:
-        data = request.json or {}
-        amount = data.get('amount')
-        
-        moyasar_url = "https://api.moyasar.com/v1/payments"
-        
-        # ضع مفتاح ميسر الفعلي الكامل هنا
-        api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
-
-        
-        payload = {
-            "amount": int(float(amount) * 100),
-            "currency": "SAR",
-            "description": "Smart Store Order"
-        }
-        
-        headers = {
-            "Content-Type": "application/json"
-        }
-        
-        response = requests.post(moyasar_url, json=payload, headers=headers, auth=(api_key, ""))
-        
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == '__main__':
+    app.run(debug=True)
