@@ -114,6 +114,7 @@ INDEX_TEMPLATE = '''
             <p style="margin:0; color: #8b949e;">أهلاً، {{ session.get('user_email', 'mmmmm_mmmmm319@yahoo.com') }}</p>
         </div>
         <div class="flex">
+            <a href="{{ url_for('test_telegram') }}" target="_blank" class="btn btn-warning">🧪 اختبار تيليجرام</a>
             <a href="{{ url_for('cart_view') }}" class="btn btn-info">🛒 السلة ({{ cart_count }})</a>
             <a href="{{ url_for('orders_view') }}" class="btn btn-warning">📦 الطلبات</a>
             <a href="{{ url_for('export_csv') }}" class="btn btn-primary">📁 تصدير CSV</a>
@@ -340,6 +341,19 @@ LOGIN_TEMPLATE = '''
 </html>
 '''
 
+@app.route('/test_telegram')
+def test_telegram():
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": "اختبار فوري من المتجر يا محمد! 🚀 يعمل بنجاح"}
+        data = urllib.parse.urlencode(payload).encode('utf-8')
+        req = urllib.request.Request(url, data=data)
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_body = response.read().decode()
+            return f"✅ تم إرسال رسالة الاختبار بنجاح! رد التيليجرام: {res_body}"
+    except Exception as e:
+        return f"❌ حدث خطأ أثناء إرسال التيليجرام: {str(e)}"
+
 @app.route('/')
 def index():
     if 'user_email' not in session:
@@ -452,6 +466,8 @@ def add_to_cart(id):
     cursor.execute("SELECT * FROM products WHERE id=?", (id,))
     product = cursor.fetchone()
     conn.close()
+    
+    print("Add to cart product fetched:", product)
     
     if not product:
         flash('المنتج غير موجود', 'danger')
