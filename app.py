@@ -20,12 +20,17 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_Name = 'store.db'
 
-# إعدادات بوت تيليجرام المحدثة
+# إعدادات بوت تيليجرام المحدثة بالأزرار التفاعلية
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
 TELEGRAM_CHAT_ID = '8508616708'
 
-def init_db():
+def get_db_connection():
     conn = sqlite3.connect(DB_Name)
+    conn.row_factory = sqlite3.Row  # ضروري جداً لقراءة البيانات بالأسماء لتجنب أخطاء 500
+    return conn
+
+def init_db():
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS products (
@@ -82,13 +87,14 @@ def send_telegram_order_notification(order_details, order_id):
 
 @app.route('/')
 def index():
-    conn = sqlite3.connect(DB_Name)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM products")
-    products = cursor.fetchall()
-    conn.close()
-    
-    # التأكد من تمرير السلة والطلبات لمنع أي خطأ 500
+    try:
+        conn = get_db_connection()
+        products = conn.execute("SELECT * FROM products").fetchall()
+        conn.close()
+    except Exception as e:
+        print(f"Index DB error: {e}")
+        products = []
+        
     cart = session.get('cart', [])
     return render_template('index.html', products=products, cart=cart)
 
@@ -107,10 +113,9 @@ def add_product():
                 image_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
                 
-        conn = sqlite3.connect(DB_Name)
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO products (name, quantity, price, seller, image) VALUES (?, ?, ?, ?, ?)",
-                       (name, quantity, price, seller, image_filename))
+        conn = get_db_connection()
+        conn.execute("INSERT INTO products (name, quantity, price, seller, image) VALUES (?, ?, ?, ?, ?)",
+                     (name, quantity, price, seller, image_filename))
         conn.commit()
         conn.close()
     except Exception as e:
@@ -119,11 +124,13 @@ def add_product():
 
 @app.route('/delete-product/<int:id>')
 def delete_product(id):
-    conn = sqlite3.connect(DB_Name)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM products WHERE id = ?", (id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        conn.execute("DELETE FROM products WHERE id = ?", (id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Delete error: {e}")
     return redirect(url_for('index'))
 
 @app.route('/checkout', methods=['POST'])
@@ -132,7 +139,7 @@ def checkout():
         customer_email = request.form.get('email', 'mmmmm_mmmmm319@yahoo.com')
         total = float(request.form.get('total', 1500.0))
         
-        conn = sqlite3.connect(DB_Name)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO orders (customer_email, total, status) VALUES (?, ?, ?)", 
                        (customer_email, total, 'جديد'))
@@ -152,17 +159,15 @@ def checkout():
 
 @app.route('/export-csv')
 def export_csv():
-    conn = sqlite3.connect(DB_Name)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM products")
-    products = cursor.fetchall()
+    conn = get_db_connection()
+    products = conn.execute("SELECT * FROM products").fetchall()
     conn.close()
     
     si = io.StringIO()
     cw = csv.writer(si)
     cw.writerow(['ID', 'Name', 'Quantity', 'Price', 'Seller', 'Image'])
     for p in products:
-        cw.writerow(p)
+        cw.writerow([p['id'], p['name'], p['quantity'], p['price'], p['seller'], p['image']])
         
     output = si.getvalue()
     return Response(
@@ -219,9 +224,8 @@ def telegram_webhook():
                 status_suffix = "\n\n✨ **حالة الطلب:** تم التأكيد بنجاح ✅"
                 response_text = f"تم تأكيد الطلب #{order_id} بنجاح!"
                 if order_id != '999':
-                    conn = sqlite3.connect(DB_Name)
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE orders SET status = 'مؤكد' WHERE id = ?", (order_id,))
+                    conn = get_db_connection()
+                    conn.execute("UPDATE orders SET status = 'مؤكد' WHERE id = ?", (order_id,))
                     conn.commit()
                     conn.close()
                 
@@ -229,9 +233,8 @@ def telegram_webhook():
                 status_suffix = "\n\n🚫 **حالة الطلب:** تم إلغاء الطلب ❌"
                 response_text = f"تم إلغاء الطلب #{order_id}."
                 if order_id != '999':
-                    conn = sqlite3.connect(DB_Name)
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE orders SET status = 'ملغي' WHERE id = ?", (order_id,))
+                    conn = get_db_connection()
+                    conn.execute("UPDATE orders SET status = 'ملغي' WHERE id = ?", (order_id,))
                     conn.commit()
                     conn.close()
 
