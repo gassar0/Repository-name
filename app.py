@@ -559,8 +559,24 @@ def telegram_webhook():
         traceback.print_exc()
 
     return jsonify({"status": "ok"})
+    return jsonify({"status": "ok"})
+
+@app.route('/test-telegram')
+def test_telegram():
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": "🧪 تجربة إرسال رسالة من المتجر الإلكتروني الذكي ✅"
+        }
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        res = urllib.request.urlopen(req)
+        return f"<h3>✅ نجح الإرسال! راجع تطبيق تيليجرام الآن.</h3><p>{res.read().decode('utf-8')}</p>"
+    except Exception as e:
+        return f"<h3>❌ فشل الإرسال من تيليجرام، السبب بالتفصيل:</h3><p style='color:red;'>{e}</p>"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
 
