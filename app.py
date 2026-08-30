@@ -10,7 +10,7 @@ app.secret_key = 'your_secret_key_here'
 
 # إعدادات بوت تيليجرام
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
-TELEGRAM_CHAT_ID = 'YOUR_CHAT_ID_HERE'  # ضع الchat_id الخاص بك هنا
+TELEGRAM_CHAT_ID = 'YOUR_CHAT_ID_HERE'
 
 def send_telegram_notification(message):
     if TELEGRAM_CHAT_ID != 'YOUR_CHAT_ID_HERE':
@@ -28,7 +28,6 @@ def send_telegram_notification(message):
 def init_db():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    # جدول المنتجات
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,7 +37,6 @@ def init_db():
             image TEXT
         )
     ''')
-    # جدول الطلبات
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,42 +146,66 @@ def checkout():
         conn.commit()
         conn.close()
         
-        # إرسال إشعار تيليجرام
         msg = f"🚨 *طلب جديد تم استلامه!*\n\n👤 العميل: {customer_name}\n📞 الهاتف: {phone}\n📍 العنوان: {address}\n💰 الإجمالي: {total_price}\n\n📦 المنتجات:\n{items_text}"
         send_telegram_notification(msg)
         
-        # تفريغ السلة
         session.pop('cart', None)
         flash('تم إتمام الطلب بنجاح وتم إرسال الإشعار!', 'success')
         return redirect(url_for('index'))
         
     return render_template('checkout.html')
 
-@app.route('/admin', methods=['GET', 'POST'])
+@app.route('/admin', methods=['GET'])
 def admin():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    
-    if request.method == 'POST':
-        name = request.form.get('name')
-        price = float(request.form.get('price'))
-        description = request.form.get('description')
-        image = request.form.get('image', 'default.jpg')
-        
-        cursor.execute('''
-            INSERT INTO products (name, price, description, image)
-            VALUES (?, ?, ?, ?)
-        ''', (name, price, description, image))
-        conn.commit()
-        flash('تم إضافة المنتج بنجاح!', 'success')
-        return redirect(url_for('admin'))
-        
     cursor.execute('SELECT * FROM products')
     products = cursor.fetchall()
     cursor.execute('SELECT * FROM orders ORDER BY created_at DESC')
     orders = cursor.fetchall()
     conn.close()
     return render_template('admin.html', products=products, orders=orders)
+
+@app.route('/add_product', methods=['POST'])
+def add_product():
+    name = request.form.get('name')
+    price = float(request.form.get('price'))
+    description = request.form.get('description', '')
+    image = request.form.get('image', 'default.jpg')
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO products (name, price, description, image)
+        VALUES (?, ?, ?, ?)
+    ''', (name, price, description, image))
+    conn.commit()
+    conn.close()
+    flash('تم إضافة المنتج بنجاح!', 'success')
+    return redirect(url_for('admin'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        session['username'] = request.form.get('username', 'مستخدم')
+        flash('تم تسجيل الدخول بنجاح!', 'success')
+        return redirect(url_for('index'))
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    session.pop('cart', None)
+    flash('تم تسجيل الخروج.', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        session['username'] = request.form.get('username', 'مستخدم جديد')
+        flash('تم إنشاء الحساب وتسجيل الدخول بنجاح!', 'success')
+        return redirect(url_for('index'))
+    return render_template('register.html')
 
 @app.route('/export_csv')
 def export_csv():
