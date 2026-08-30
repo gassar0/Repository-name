@@ -51,6 +51,13 @@ def init_db():
             status TEXT DEFAULT 'جديد'
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -95,18 +102,54 @@ def index():
         conn.close()
         
         cart = session.get('cart', [])
-        return render_template('store.html', products=products, cart=cart, orders=orders)
+        user = session.get('user', None)
+        return render_template('store.html', products=products, cart=cart, orders=orders, user=user)
     except Exception as e:
         print("--- TEMPLATE RENDERING ERROR TRACEBACK ---")
         traceback.print_exc()
         return f"حدث خطأ في عرض الصفحة: {e}", 500
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    return redirect(url_for('index'))
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        conn = get_db_connection()
+        user = conn.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password)).fetchone()
+        conn.close()
+        
+        if user:
+            session['user'] = user['username']
+            return redirect(url_for('index'))
+        else:
+            error = "اسم المستخدم أو كلمة المرور غير صحيحة"
+            
+    return render_template('auth.html', mode='login', error=error)
 
-@app.route('/register')
+@app.route('/register', methods=['GET', 'POST'])
 def register():
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        try:
+            conn = get_db_connection()
+            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+            conn.commit()
+            conn.close()
+            session['user'] = username
+            return redirect(url_for('index'))
+        except sqlite3.IntegrityError:
+            error = "اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر."
+            
+    return render_template('auth.html', mode='register', error=error)
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
     return redirect(url_for('index'))
 
 @app.route('/view-cart')
@@ -117,7 +160,8 @@ def view_cart():
         orders = conn.execute("SELECT * FROM orders").fetchall()
         conn.close()
         cart = session.get('cart', [])
-        return render_template('store.html', products=products, cart=cart, orders=orders)
+        user = session.get('user', None)
+        return render_template('store.html', products=products, cart=cart, orders=orders, user=user)
     except Exception as e:
         print(f"View cart error: {e}")
         return redirect(url_for('index'))
