@@ -95,12 +95,24 @@ def index():
         conn.close()
         
         cart = session.get('cart', [])
-        # تم ضبطه على store.html مطابقة لاسم الملف الموجود لديك في مجلد templates
         return render_template('store.html', products=products, cart=cart, orders=orders)
     except Exception as e:
         print("--- TEMPLATE RENDERING ERROR TRACEBACK ---")
         traceback.print_exc()
         return f"حدث خطأ في عرض الصفحة: {e}", 500
+
+@app.route('/view-cart')
+def view_cart():
+    try:
+        conn = get_db_connection()
+        products = conn.execute("SELECT * FROM products").fetchall()
+        orders = conn.execute("SELECT * FROM orders").fetchall()
+        conn.close()
+        cart = session.get('cart', [])
+        return render_template('store.html', products=products, cart=cart, orders=orders)
+    except Exception as e:
+        print(f"View cart error: {e}")
+        return redirect(url_for('index'))
 
 @app.route('/add-product', methods=['POST'])
 def add_product():
@@ -152,7 +164,6 @@ def checkout():
         conn.commit()
         conn.close()
         
-        # إرسال إشعار تيليجرام للطلب الجديد مع الأزرار
         msg = f"🛒 طلب شراء جديد تم تنفيذه!\n👤 العميل: {customer_email}\n\n- لاب توب ديل (الكمية: 1) - السعر: {total} ر.س\n\n💰 الإجمالي الكلي: {total} ر.س"
         send_telegram_order_notification(msg, order_id)
         
@@ -244,7 +255,6 @@ def telegram_webhook():
                     conn.commit()
                     conn.close()
 
-            # الرد على ضغطة الزر لإيقاف علامة التحميل
             answer_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
             answer_payload = {"callback_query_id": callback_query_id, "text": response_text}
             try:
@@ -253,7 +263,6 @@ def telegram_webhook():
             except:
                 pass
 
-            # تعديل رسالة تيليجرام وإزالة الأزرار
             edit_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
             edit_payload = {
                 "chat_id": chat_id,
