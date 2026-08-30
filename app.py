@@ -101,6 +101,10 @@ def index():
         traceback.print_exc()
         return f"حدث خطأ في عرض الصفحة: {e}", 500
 
+@app.route('/login')
+def login():
+    return redirect(url_for('index'))
+
 @app.route('/view-cart')
 def view_cart():
     try:
