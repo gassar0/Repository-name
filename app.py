@@ -50,6 +50,7 @@ def init_db():
 
 init_db()
 
+# دالة إرسال الإشعار مع الأزرار التفاعلية
 def send_telegram_order_notification(order_details, order_id):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
@@ -86,29 +87,89 @@ def index():
     cursor.execute("SELECT * FROM products")
     products = cursor.fetchall()
     conn.close()
-    return render_template('index.html', products=products)
+    
+    # التأكد من تمرير السلة والطلبات لمنع أي خطأ 500
+    cart = session.get('cart', [])
+    return render_template('index.html', products=products, cart=cart)
 
 @app.route('/add-product', methods=['POST'])
 def add_product():
-    name = request.form.get('name')
-    quantity = request.form.get('quantity')
-    price = request.form.get('price')
-    seller = request.form.get('seller')
-    
-    image_filename = ""
-    if 'image' in request.files:
-        file = request.files['image']
-        if file and file.filename != '':
-            image_filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
-            
+    try:
+        name = request.form.get('name')
+        quantity = request.form.get('quantity', 1)
+        price = request.form.get('price', 0.0)
+        seller = request.form.get('seller', 'محمد رجب')
+        
+        image_filename = ""
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename != '':
+                image_filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
+                
+        conn = sqlite3.connect(DB_Name)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO products (name, quantity, price, seller, image) VALUES (?, ?, ?, ?, ?)",
+                       (name, quantity, price, seller, image_filename))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Add product error: {e}")
+    return redirect(url_for('index'))
+
+@app.route('/delete-product/<int:id>')
+def delete_product(id):
     conn = sqlite3.connect(DB_Name)
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO products (name, quantity, price, seller, image) VALUES (?, ?, ?, ?, ?)",
-                   (name, quantity, price, seller, image_filename))
+    cursor.execute("DELETE FROM products WHERE id = ?", (id,))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
+
+@app.route('/checkout', methods=['POST'])
+def checkout():
+    try:
+        customer_email = request.form.get('email', 'mmmmm_mmmmm319@yahoo.com')
+        total = float(request.form.get('total', 1500.0))
+        
+        conn = sqlite3.connect(DB_Name)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO orders (customer_email, total, status) VALUES (?, ?, ?)", 
+                       (customer_email, total, 'جديد'))
+        order_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        # إرسال إشعار تيليجرام للطلب الجديد مع الأزرار
+        msg = f"🛒 طلب شراء جديد تم تنفيذه!\n👤 العميل: {customer_email}\n\n- لاب توب ديل (الكمية: 1) - السعر: {total} ر.س\n\n💰 الإجمالي الكلي: {total} ر.س"
+        send_telegram_order_notification(msg, order_id)
+        
+        session['cart'] = []
+    except Exception as e:
+        print(f"Checkout error: {e}")
+        
+    return redirect(url_for('index'))
+
+@app.route('/export-csv')
+def export_csv():
+    conn = sqlite3.connect(DB_Name)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM products")
+    products = cursor.fetchall()
+    conn.close()
+    
+    si = io.StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['ID', 'Name', 'Quantity', 'Price', 'Seller', 'Image'])
+    for p in products:
+        cw.writerow(p)
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=products.csv"}
+    )
 
 @app.route('/test-telegram', methods=['GET', 'POST'])
 def test_telegram():
@@ -122,8 +183,7 @@ def test_telegram():
             bot_name = data['result'].get('first_name', 'Bot')
             bot_username = data['result'].get('username', '')
             
-            # إرسال رسالة اختبارية فورية مع الأزرار
-            test_msg = f"🚀 اختبار فوري من المتجر يا محمد! يعمل بنجاح"
+            test_msg = f"🚀 اختبار فوري من المتجر يا محمد! يعمل بنجاح ✅"
             send_telegram_order_notification(test_msg, 999)
             
             return jsonify({
@@ -137,66 +197,68 @@ def test_telegram():
 
 @app.route('/telegram-webhook', methods=['POST'])
 def telegram_webhook():
-    data = request.get_json()
-    
-    if 'callback_query' in data:
-        callback = data['callback_query']
-        callback_data = callback['data']
-        chat_id = callback['message']['chat']['id']
-        message_id = callback['message']['message_id']
-        callback_query_id = callback['id']
-        original_text = callback['message']['text']
-        
-        action, order_id = callback_data.split('_', 1)
-        
-        response_text = ""
-        status_suffix = ""
-        
-        if action == 'confirm':
-            status_suffix = "\n\n✨ **حالة الطلب:** تم التأكيد بنجاح ✅"
-            response_text = f"تم تأكيد الطلب #{order_id} بنجاح!"
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "ok"})
             
-            # تحديث حالة الطلب في قاعدة البيانات إذا وجد
-            if order_id != '999':
-                conn = sqlite3.connect(DB_Name)
-                cursor = conn.cursor()
-                cursor.execute("UPDATE orders SET status = 'مؤكد' WHERE id = ?", (order_id,))
-                conn.commit()
-                conn.close()
+        if 'callback_query' in data:
+            callback = data['callback_query']
+            callback_data = callback['data']
+            chat_id = callback['message']['chat']['id']
+            message_id = callback['message']['message_id']
+            callback_query_id = callback['id']
+            original_text = callback['message']['text']
             
-        elif action == 'cancel':
-            status_suffix = "\n\n🚫 **حالة الطلب:** تم إلغاء الطلب ❌"
-            response_text = f"تم إلغاء الطلب #{order_id}."
+            action, order_id = callback_data.split('_', 1)
             
-            if order_id != '999':
-                conn = sqlite3.connect(DB_Name)
-                cursor = conn.cursor()
-                cursor.execute("UPDATE orders SET status = 'ملغي' WHERE id = ?", (order_id,))
-                conn.commit()
-                conn.close()
+            response_text = ""
+            status_suffix = ""
+            
+            if action == 'confirm':
+                status_suffix = "\n\n✨ **حالة الطلب:** تم التأكيد بنجاح ✅"
+                response_text = f"تم تأكيد الطلب #{order_id} بنجاح!"
+                if order_id != '999':
+                    conn = sqlite3.connect(DB_Name)
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE orders SET status = 'مؤكد' WHERE id = ?", (order_id,))
+                    conn.commit()
+                    conn.close()
+                
+            elif action == 'cancel':
+                status_suffix = "\n\n🚫 **حالة الطلب:** تم إلغاء الطلب ❌"
+                response_text = f"تم إلغاء الطلب #{order_id}."
+                if order_id != '999':
+                    conn = sqlite3.connect(DB_Name)
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE orders SET status = 'ملغي' WHERE id = ?", (order_id,))
+                    conn.commit()
+                    conn.close()
 
-        # الرد على ضغطة الزر
-        answer_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
-        answer_payload = {"callback_query_id": callback_query_id, "text": response_text}
-        try:
-            req = urllib.request.Request(answer_url, data=json.dumps(answer_payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
-            urllib.request.urlopen(req)
-        except:
-            pass
+            # الرد على ضغطة الزر لإيقاف علامة التحميل
+            answer_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
+            answer_payload = {"callback_query_id": callback_query_id, "text": response_text}
+            try:
+                req = urllib.request.Request(answer_url, data=json.dumps(answer_payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+                urllib.request.urlopen(req)
+            except:
+                pass
 
-        # تعديل رسالة تيليجرام لإظهار الحالة وإزالة الأزرار
-        edit_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
-        edit_payload = {
-            "chat_id": chat_id,
-            "message_id": message_id,
-            "text": original_text + status_suffix,
-            "parse_mode": "Markdown"
-        }
-        try:
-            req = urllib.request.Request(edit_url, data=json.dumps(edit_payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
-            urllib.request.urlopen(req)
-        except:
-            pass
+            # تعديل رسالة تيليجرام وإزالة الأزرار
+            edit_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
+            edit_payload = {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "text": original_text + status_suffix,
+                "parse_mode": "Markdown"
+            }
+            try:
+                req = urllib.request.Request(edit_url, data=json.dumps(edit_payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+                urllib.request.urlopen(req)
+            except:
+                pass
+    except Exception as e:
+        print(f"Webhook error: {e}")
 
     return jsonify({"status": "ok"})
 
