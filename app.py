@@ -22,7 +22,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_Name = 'store.db'
 
-# إعدادات بوت تيليجرام المحدثة بالأزرار التفاعلية
+# إعدادات بوت تيليجرام
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
 TELEGRAM_CHAT_ID = '8508616708'
 
@@ -116,7 +116,7 @@ STORE_HTML_TEMPLATE = """
             </div>
         </div>
 
-        <!-- قسم عرض السلة إذا كان العميل داخل صفحة السلة -->
+        <!-- قسم عرض السلة -->
         {% if show_cart %}
         <div class="card" style="border-color: #58a6ff;">
             <h2>🛒 سلة الشراء الخاصة بك</h2>
@@ -141,7 +141,7 @@ STORE_HTML_TEMPLATE = """
                 </table>
                 <h3 style="margin-top: 15px; color: #3fb950;">الإجمالي الكلي: {{ ns.total }} ر.س</h3>
                 
-                <form action="{{ url_for('checkout') }}" method="POST" style="margin-top: 15px;">
+                <form action="{{ url_for('checkout') }}" method="POST" onsubmit="alert('🚀 تم إرسال الطلب وتسجيله بنجاح!');" style="margin-top: 15px;">
                     <input type="email" name="email" placeholder="بريدك الإلكتروني (اختياري)" value="mmmmm_mmmmm319@yahoo.com">
                     <input type="hidden" name="total" value="{{ ns.total }}">
                     <button type="submit" class="btn" style="width: 100%; background-color: #238636; padding: 12px; font-size: 16px;">🚀 إتمام الشراء وإرسال الطلب لتيليجرام</button>
@@ -469,7 +469,6 @@ def checkout():
         items_summary = "\n".join([f"- {item['name']} ({item['price']} ر.س)" for item in cart])
         msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 العميل: {customer_email}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
         
-        # إرسال إشعار تيليجرام في الخلفية حتى يتم تسجيل الطلب وتحويلك فوراً بدون أي تعليق
         threading.Thread(target=send_telegram_order_notification, args=(msg, order_id)).start()
         
         session['cart'] = []
