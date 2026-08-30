@@ -276,11 +276,10 @@ def init_db():
         )
     ''')
     
-    # التأكد من إضافة عمود status تلقائياً لو الجدول قديم
     try:
         cursor.execute("ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'جديد'")
     except sqlite3.OperationalError:
-        pass # العمود موجود بالفعل
+        pass
         
     conn.commit()
     conn.close()
@@ -336,6 +335,18 @@ def index():
         print("--- TEMPLATE ERROR ---")
         traceback.print_exc()
         return f"حدث خطأ: {e}", 500
+
+@app.route('/set-webhook')
+def set_webhook():
+    try:
+        host_url = request.host_url.rstrip('/')
+        webhook_url = f"{host_url}/telegram-webhook"
+        api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook?url={webhook_url}"
+        response = urllib.request.urlopen(api_url)
+        result = response.read().decode('utf-8')
+        return f"<h3>✅ تم تفعيل الويب هوك بنجاح!</h3><p>رابط الويب هوك المربوط: <b>{webhook_url}</b></p><p>رد تيليجرام: {result}</p>"
+    except Exception as e:
+        return f"حدث خطأ أثناء تفعيل الويب هوك: {e}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -552,3 +563,4 @@ def telegram_webhook():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
