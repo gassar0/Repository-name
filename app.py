@@ -11,22 +11,8 @@ app.secret_key = 'smart_warehouse_secret_key_2026'
 def init_db():
     conn = sqlite3.connect("store.db")
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
-            vendor TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    ''')
+    cursor.execute(''' CREATE TABLE IF NOT EXISTS products ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, quantity INTEGER NOT NULL, price REAL NOT NULL, vendor TEXT ) ''')
+    cursor.execute(''' CREATE TABLE IF NOT EXISTS users ( id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL ) ''')
     conn.commit()
     conn.close()
 
@@ -150,4 +136,37 @@ def export_excel():
         csv_data += f"{row[0]},{row[1]},{row[2]},{row[3]}\n"
 
     response = make_response(csv_data.encode('utf-8-sig'))
-    response.headers["Content-Disposition"] = "attachment; filename=products.cs
+    response.headers["Content-Disposition"] = "attachment; filename=products.csv"
+    response.headers["Content-Type"] = "text/csv; charset=utf-8-sig"
+    return response
+
+@app.route('/create-payment', methods=['POST'])
+def create_payment():
+    try:
+        data = request.json or {}
+        amount = data.get('amount')
+        
+        moyasar_url = "https://api.moyasar.com/v1/payments"
+        
+        # ضع مفتاح ميسر الفعلي الكامل هنا
+        api_key = "sk_live_QmHZnPZeYcQeupUZqbLHKYftGE3AjqVpQbnMik7Y"
+
+        
+        payload = {
+            "amount": int(float(amount) * 100),
+            "currency": "SAR",
+            "description": "Smart Store Order"
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(moyasar_url, json=payload, headers=headers, auth=(api_key, ""))
+        
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
