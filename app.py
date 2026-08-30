@@ -7,7 +7,6 @@ import urllib.parse
 import urllib.error
 import json
 import traceback
-import threading
 from datetime import datetime
 from flask import Flask, render_template_string, request, jsonify, redirect, url_for, session, Response
 from werkzeug.utils import secure_filename
@@ -141,7 +140,7 @@ STORE_HTML_TEMPLATE = """
                 </table>
                 <h3 style="margin-top: 15px; color: #3fb950;">الإجمالي الكلي: {{ ns.total }} ر.س</h3>
                 
-                <form action="{{ url_for('checkout') }}" method="POST" onsubmit="alert('🚀 تم إرسال الطلب وتسجيله بنجاح!');" style="margin-top: 15px;">
+                <form action="{{ url_for('checkout') }}" method="POST" onsubmit="alert('🚀 جاري إرسال الطلب لتيليجرام...');" style="margin-top: 15px;">
                     <input type="email" name="email" placeholder="بريدك الإلكتروني (اختياري)" value="mmmmm_mmmmm319@yahoo.com">
                     <input type="hidden" name="total" value="{{ ns.total }}">
                     <button type="submit" class="btn" style="width: 100%; background-color: #238636; padding: 12px; font-size: 16px;">🚀 إتمام الشراء وإرسال الطلب لتيليجرام</button>
@@ -348,6 +347,20 @@ def set_webhook():
     except Exception as e:
         return f"حدث خطأ أثناء تفعيل الويب هوك: {e}"
 
+@app.route('/test-telegram')
+def test_telegram():
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": "🧪 تجربة إرسال رسالة من المتجر الإلكتروني الذكي ✅"
+        }
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        res = urllib.request.urlopen(req)
+        return f"<h3>✅ نجح الإرسال! راجع تطبيق تيليجرام الآن.</h3><p>{res.read().decode('utf-8')}</p>"
+    except Exception as e:
+        return f"<h3>❌ فشل الإرسال من تيليجرام، السبب بالتفصيل:</h3><p style='color:red;'>{e}</p>"
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -487,7 +500,8 @@ def checkout():
         items_summary = "\n".join([f"- {item['name']} ({item['price']} ر.س)" for item in cart])
         msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 العميل: {customer_email}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
         
-        threading.Thread(target=send_telegram_order_notification, args=(msg, order_id)).start()
+        # إرسال مباشر وفوري لتيليجرام بدون خيوط خلفية
+        send_telegram_order_notification(msg, order_id)
         
         session['cart'] = []
     except Exception as e:
@@ -559,24 +573,7 @@ def telegram_webhook():
         traceback.print_exc()
 
     return jsonify({"status": "ok"})
-    return jsonify({"status": "ok"})
-
-@app.route('/test-telegram')
-def test_telegram():
-    try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": "🧪 تجربة إرسال رسالة من المتجر الإلكتروني الذكي ✅"
-        }
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
-        res = urllib.request.urlopen(req)
-        return f"<h3>✅ نجح الإرسال! راجع تطبيق تيليجرام الآن.</h3><p>{res.read().decode('utf-8')}</p>"
-    except Exception as e:
-        return f"<h3>❌ فشل الإرسال من تيليجرام، السبب بالتفصيل:</h3><p style='color:red;'>{e}</p>"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
-
