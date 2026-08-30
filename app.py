@@ -25,7 +25,7 @@ DB_Name = 'store.db'
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
 TELEGRAM_CHAT_ID = '8508616708'
 
-# قالب صفحة الدخول والتسجيل المدمج
+# قالب صفحة الدخول والتسجيل
 AUTH_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -35,7 +35,7 @@ AUTH_HTML_TEMPLATE = """
     <style>
         body { background-color: #0d1117; color: #c9d1d9; font-family: Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: #161b22; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 350px; text-align: center; border: 1px solid #30363d; }
-        input { width: 90%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 6px; }
+        input { width: 90%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 6px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         button:hover { background: #2ea043; }
         a { color: #58a6ff; text-decoration: none; display: block; margin-top: 15px; }
@@ -62,7 +62,7 @@ AUTH_HTML_TEMPLATE = """
 </html>
 """
 
-# قالب المتجر الرئيسي المدمج
+# قالب المتجر الرئيسي مع السلة وتيليجرام
 STORE_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -75,7 +75,7 @@ STORE_HTML_TEMPLATE = """
         .container { max-width: 800px; margin: auto; }
         .card { background: #161b22; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-bottom: 20px; border: 1px solid #30363d; }
         h1, h2 { color: #58a6ff; text-align: center; }
-        .btn { display: inline-block; padding: 10px 20px; background: #238636; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; text-align: center; }
+        .btn { display: inline-block; padding: 8px 16px; background: #238636; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; text-align: center; font-size: 14px; }
         .btn:hover { background: #2ea043; }
         .btn-danger { background: #da3633; }
         .btn-danger:hover { background: #f85149; }
@@ -83,7 +83,7 @@ STORE_HTML_TEMPLATE = """
         .btn-secondary:hover { background: #30363d; }
         input, select { width: 100%; padding: 10px; margin: 8px 0; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 6px; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #30363d; padding: 10px; text-align: center; }
+        th, td { border: 1px solid #30363d; padding: 10px; text-align: center; font-size: 14px; }
         th { background: #21262d; color: #58a6ff; }
         .user-bar { display: flex; justify-content: space-between; align-items: center; background: #21262d; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #30363d; }
     </style>
@@ -100,10 +100,10 @@ STORE_HTML_TEMPLATE = """
             </div>
             <div>
                 {% if user %}
-                    <a href="{{ url_for('logout') }}" class="btn btn-danger" style="padding: 6px 12px; font-size: 14px;">تسجيل الخروج</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;">تسجيل الخروج</a>
                 {% else %}
-                    <a href="{{ url_for('login') }}" class="btn" style="padding: 6px 12px; font-size: 14px; margin-left: 5px;">تسجيل الدخول</a>
-                    <a href="{{ url_for('register') }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 14px;">إنشاء حساب</a>
+                    <a href="{{ url_for('login') }}" class="btn" style="padding: 6px 12px; font-size: 13px; margin-left: 5px;">تسجيل الدخول</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">إنشاء حساب</a>
                 {% endif %}
             </div>
         </div>
@@ -111,9 +111,48 @@ STORE_HTML_TEMPLATE = """
         <div class="card">
             <h1>🛍️ المتجر الإلكتروني الذكي</h1>
             <div style="text-align: center;">
-                <a href="{{ url_for('view_cart') }}" class="btn">🛒 السلة ({{ cart|length }})</a>
+                <a href="{{ url_for('view_cart') }}" class="btn">🛒 عرض سلة الشراء ({{ cart|length }})</a>
             </div>
         </div>
+
+        <!-- قسم عرض السلة إذا كان العميل داخل صفحة السلة -->
+        {% if show_cart %}
+        <div class="card" style="border-color: #58a6ff;">
+            <h2>🛒 سلة الشراء الخاصة بك</h2>
+            {% if cart %}
+                <table>
+                    <tr>
+                        <th>اسم المنتج</th>
+                        <th>السعر</th>
+                        <th>إجراء</th>
+                    </tr>
+                    {% set ns = namespace(total=0) %}
+                    {% for item in cart %}
+                    {% set ns.total = ns.total + item.price %}
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.price }} ر.س</td>
+                        <td>
+                            <a href="{{ url_for('remove_from_cart', index=loop.index0) }}" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">حذف من السلة</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                <h3 style="margin-top: 15px; color: #3fb950;">الإجمالي الكلي: {{ ns.total }} ر.س</h3>
+                
+                <form action="{{ url_for('checkout') }}" method="POST" style="margin-top: 15px;">
+                    <input type="email" name="email" placeholder="بريدك الإلكتروني (اختياري)" value="mmmmm_mmmmm319@yahoo.com">
+                    <input type="hidden" name="total" value="{{ ns.total }}">
+                    <button type="submit" class="btn" style="width: 100%; background-color: #238636; padding: 12px; font-size: 16px;">🚀 إتمام الشراء وإرسال الطلب لتيليجرام</button>
+                </form>
+            {% else %}
+                <p style="text-align: center; color: #8b949e;">سلة الشراء فارغة حالياً.</p>
+            {% endif %}
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">العودة للمنتجات</a>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="card">
             <h2>🔥 المنتجات المتوفرة</h2>
@@ -130,26 +169,27 @@ STORE_HTML_TEMPLATE = """
                         <th>السعر</th>
                         <th>الكمية</th>
                         <th>البائع</th>
-                        {% if user %}<th>إجراءات</th>{% endif %}
+                        <th>الإجراءات</th>
                     </tr>
                     {% for p in products %}
                     <tr>
                         <td>
                             {% if p.image %}
-                                <img src="{{ url_for('static', filename='uploads/' + p.image) }}" width="50" style="border-radius: 4px;">
+                                <img src="{{ url_for('static', filename='uploads/' + p.image) }}" width="45" style="border-radius: 4px;">
                             {% else %}
-                                <span>لا توجد</span>
+                                <span style="font-size: 12px; color: #8b949e;">لا توجد</span>
                             {% endif %}
                         </td>
                         <td>{{ p.name }}</td>
                         <td>{{ p.price }} ر.س</td>
                         <td>{{ p.quantity }}</td>
                         <td>{{ p.seller }}</td>
-                        {% if user %}
                         <td>
-                            <a href="{{ url_for('delete_product', id=p.id) }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">حذف</a>
+                            <a href="{{ url_for('add_to_cart', id=p.id) }}" class="btn" style="padding: 5px 10px; font-size: 12px; margin-bottom: 4px; display: inline-block;">🛒 شراء</a>
+                            {% if user %}
+                                <a href="{{ url_for('delete_product', id=p.id) }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; display: inline-block;">حذف</a>
+                            {% endif %}
                         </td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
                 </table>
@@ -167,12 +207,12 @@ STORE_HTML_TEMPLATE = """
                 <input type="number" name="quantity" placeholder="الكمية" value="1" required>
                 <input type="text" name="seller" placeholder="اسم البائع" value="{{ user }}">
                 <input type="file" name="image" accept="image/*">
-                <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">إضافة المنتج</button>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">إضافة المنتج للمتجر</button>
             </form>
         </div>
 
         <div class="card">
-            <h2>📦 طلبات العملاء</h2>
+            <h2>📦 طلبات العملاء المسجلة</h2>
             {% if orders %}
                 <table>
                     <tr>
@@ -283,11 +323,11 @@ def index():
         
         cart = session.get('cart', [])
         user = session.get('user', None)
-        return render_template_string(STORE_HTML_TEMPLATE, products=products, cart=cart, orders=orders, user=user)
+        return render_template_string(STORE_HTML_TEMPLATE, products=products, cart=cart, orders=orders, user=user, show_cart=False)
     except Exception as e:
-        print("--- TEMPLATE RENDERING ERROR TRACEBACK ---")
+        print("--- TEMPLATE ERROR ---")
         traceback.print_exc()
-        return f"حدث خطأ في عرض الصفحة: {e}", 500
+        return f"حدث خطأ: {e}", 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -332,9 +372,41 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('index'))
 
+@app.route('/add-to-cart/<int:id>')
+def add_to_cart(id):
+    conn = get_db_connection()
+    product = conn.execute("SELECT * FROM products WHERE id = ?", (id,)).fetchone()
+    conn.close()
+    
+    if product:
+        if 'cart' not in session:
+            session['cart'] = []
+        cart = session['cart']
+        cart.append({'id': product['id'], 'name': product['name'], 'price': product['price']})
+        session['cart'] = cart
+    return redirect(url_for('view_cart'))
+
+@app.route('/remove-from-cart/<int:index>')
+def remove_from_cart(index):
+    cart = session.get('cart', [])
+    if 0 <= index < len(cart):
+        cart.pop(index)
+        session['cart'] = cart
+    return redirect(url_for('view_cart'))
+
 @app.route('/view-cart')
 def view_cart():
-    return redirect(url_for('index'))
+    try:
+        conn = get_db_connection()
+        products = conn.execute("SELECT * FROM products").fetchall()
+        orders = conn.execute("SELECT * FROM orders").fetchall()
+        conn.close()
+        cart = session.get('cart', [])
+        user = session.get('user', None)
+        return render_template_string(STORE_HTML_TEMPLATE, products=products, cart=cart, orders=orders, user=user, show_cart=True)
+    except Exception as e:
+        print(f"View cart error: {e}")
+        return redirect(url_for('index'))
 
 @app.route('/add-product', methods=['POST'])
 def add_product():
@@ -358,7 +430,6 @@ def add_product():
         conn.close()
     except Exception as e:
         print(f"Add product error: {e}")
-        traceback.print_exc()
     return redirect(url_for('index'))
 
 @app.route('/delete-product/<int:id>')
@@ -372,24 +443,35 @@ def delete_product(id):
         print(f"Delete error: {e}")
     return redirect(url_for('index'))
 
-@app.route('/export-csv')
-def export_csv():
-    conn = get_db_connection()
-    products = conn.execute("SELECT * FROM products").fetchall()
-    conn.close()
-    
-    si = io.StringIO()
-    cw = csv.writer(si)
-    cw.writerow(['ID', 'Name', 'Quantity', 'Price', 'Seller', 'Image'])
-    for p in products:
-        cw.writerow([p['id'], p['name'], p['quantity'], p['price'], p['seller'], p['image']])
+@app.route('/checkout', methods=['POST'])
+def checkout():
+    try:
+        customer_email = request.form.get('email', 'mmmmm_mmmmm319@yahoo.com')
+        total = float(request.form.get('total', 0.0))
+        cart = session.get('cart', [])
         
-    output = si.getvalue()
-    return Response(
-        output,
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment;filename=products.csv"}
-    )
+        if not cart:
+            return redirect(url_for('index'))
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO orders (customer_email, total, status) VALUES (?, ?, ?)", 
+                       (customer_email, total, 'جديد'))
+        order_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        items_summary = "\n".join([f"- {item['name']} ({item['price']} ر.س)" for item in cart])
+        msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 العميل: {customer_email}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
+        
+        send_telegram_order_notification(msg, order_id)
+        
+        session['cart'] = []
+    except Exception as e:
+        print(f"Checkout error: {e}")
+        traceback.print_exc()
+        
+    return redirect(url_for('index'))
 
 @app.route('/telegram-webhook', methods=['POST'])
 def telegram_webhook():
