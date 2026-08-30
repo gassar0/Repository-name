@@ -90,13 +90,14 @@ def index():
     try:
         conn = get_db_connection()
         products = conn.execute("SELECT * FROM products").fetchall()
+        orders = conn.execute("SELECT * FROM orders").fetchall()
         conn.close()
-    except Exception as e:
-        print(f"Index DB error: {e}")
-        products = []
         
-    cart = session.get('cart', [])
-    return render_template('index.html', products=products, cart=cart)
+        cart = session.get('cart', [])
+        return render_template('index.html', products=products, cart=cart, orders=orders)
+    except Exception as e:
+        print(f"TEMPLATE RENDERING ERROR: {e}")
+        return f"حدث خطأ في عرض الصفحة: {e}", 500
 
 @app.route('/add-product', methods=['POST'])
 def add_product():
