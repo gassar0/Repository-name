@@ -21,7 +21,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 DB_Name = 'store.db'
 
 # إعدادات بوت تيليجرام
-TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn808KuiqaVLQSERNxY2rstA8SF8JQ'  
+  TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
 TELEGRAM_CHAT_ID = '8508616708'    
 
 def send_telegram_notification(message):
