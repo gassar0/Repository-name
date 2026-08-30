@@ -1,6 +1,5 @@
 import csv
 import io
-import os
 import sqlite3
 from datetime import datetime
 from flask import Flask, Response, flash, redirect, render_template_string, request, session, url_for
@@ -13,7 +12,6 @@ DB_Name = 'store.db'
 def init_db():
     conn = sqlite3.connect(DB_Name)
     cursor = conn.cursor()
-    # جدول المنتجات
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +22,6 @@ def init_db():
             image TEXT
         )
     ''')
-    # جدول الطلبات
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,8 +37,7 @@ def init_db():
 
 init_db()
 
-# تنسيقات التصميم (Dark Theme متناسق مع لقطات الشاشة)
-BASE_STYLE = '''
+COMMON_STYLE = '''
 <style>
     body { background-color: #0d1117; color: #e6edf3; font-family: Tahoma, sans-serif; direction: rtl; margin: 0; padding: 20px; }
     .container { max-width: 950px; margin: auto; }
@@ -71,17 +67,16 @@ BASE_STYLE = '''
 </style>
 '''
 
-INDEX_TEMPLATE = f'''
+INDEX_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
     <title>المتجر الإلكتروني الذكي</title>
-    {BASE_STYLE}
+    ''' + COMMON_STYLE + '''
 </head>
 <body>
 <div class="container">
-    <!-- الشريط العلوي -->
     <div class="card flex" style="justify-content: space-between;">
         <div>
             <h2>🛍️ المتجر الإلكتروني الذكي</h2>
@@ -101,9 +96,8 @@ INDEX_TEMPLATE = f'''
                 <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'danger') }}">{{ message }}</div>
             {% endfor %}
         {% endif %}
-    {% with %}
+    {% endwith %}
 
-    <!-- شريط البحث -->
     <div class="card">
         <form method="GET" action="{{ url_for('index') }}" class="flex">
             <input type="text" name="q" value="{{ request.args.get('q', '') }}" placeholder="🔍 ابحث عن اسم المنتج أو البائع..." style="flex:1; margin:0;">
@@ -111,7 +105,6 @@ INDEX_TEMPLATE = f'''
         </form>
     </div>
 
-    <!-- المنتجات المتوفرة -->
     <div class="card">
         <h3>🔥 المنتجات المتوفرة</h3>
         {% if products %}
@@ -139,7 +132,6 @@ INDEX_TEMPLATE = f'''
         {% endif %}
     </div>
 
-    <!-- بوابة إدارة المتجر (إضافة منتج جديد) -->
     <div class="card">
         <h3>🔒 بوابة إدارة المتجر (للمسؤولين)</h3>
         <h4 style="margin-bottom: 5px;">📦 إضافة منتج جديد</h4>
@@ -158,13 +150,13 @@ INDEX_TEMPLATE = f'''
 </html>
 '''
 
-CART_TEMPLATE = f'''
+CART_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
     <title>سلة المشتريات</title>
-    {BASE_STYLE}
+    ''' + COMMON_STYLE + '''
 </head>
 <body>
 <div class="container">
@@ -219,13 +211,13 @@ CART_TEMPLATE = f'''
 </html>
 '''
 
-ORDERS_TEMPLATE = f'''
+ORDERS_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
     <title>طلبات العملاء</title>
-    {BASE_STYLE}
+    ''' + COMMON_STYLE + '''
 </head>
 <body>
 <div class="container">
@@ -265,13 +257,13 @@ ORDERS_TEMPLATE = f'''
 </html>
 '''
 
-EDIT_TEMPLATE = f'''
+EDIT_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
     <title>تعديل منتج</title>
-    {BASE_STYLE}
+    ''' + COMMON_STYLE + '''
 </head>
 <body>
 <div class="container">
@@ -294,13 +286,13 @@ EDIT_TEMPLATE = f'''
 </html>
 '''
 
-LOGIN_TEMPLATE = f'''
+LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
     <title>تسجيل الدخول</title>
-    {BASE_STYLE}
+    ''' + COMMON_STYLE + '''
 </head>
 <body>
 <div class="container" style="max-width: 400px; margin-top: 80px;">
@@ -498,10 +490,10 @@ def checkout():
     conn.close()
     
     session['cart'] = []
-    flash('تم إتمام الطلب بنجاح! وتم خصم المخزن وتجليه في سجل الطلبات.', 'success')
+    flash('تم إتمام الطلب بنجاح! وتم خصم المخزن وتسجيله في سجل الطلبات.', 'success')
     return redirect(url_for('orders_view'))
 
-@_orders_route = app.route('/orders')
+@app.route('/orders')
 def orders_view():
     conn = sqlite3.connect(DB_Name)
     cursor = conn.cursor()
