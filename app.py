@@ -105,6 +105,10 @@ def index():
 def login():
     return redirect(url_for('index'))
 
+@app.route('/register')
+def register():
+    return redirect(url_for('index'))
+
 @app.route('/view-cart')
 def view_cart():
     try:
