@@ -14,16 +14,18 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = 'smart_store_secret_key_12345'
 
+# ==========================================
+# ⚙️ إعدادات تيليجرام (قم بمراجعتها هنا)
+# ==========================================
+TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
+TELEGRAM_CHAT_ID = '8508616708'
+
 # إعداد مجلد رفع الصور
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_Name = 'store.db'
-
-# إعدادات بوت تيليجرام
-TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
-TELEGRAM_CHAT_ID = '8508616708'
 
 # قالب صفحة الدخول والتسجيل
 AUTH_HTML_TEMPLATE = """
@@ -285,6 +287,7 @@ def init_db():
 
 init_db()
 
+# دالة إرسال تيليجرام (بدون Markdown لتجنب أخطاء الرموز)
 def send_telegram_order_notification(order_details, order_id):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
@@ -293,7 +296,6 @@ def send_telegram_order_notification(order_details, order_id):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": order_details,
-        "parse_mode": "Markdown",
         "reply_markup": {
             "inline_keyboard": [
                 [
@@ -500,7 +502,7 @@ def checkout():
         items_summary = "\n".join([f"- {item['name']} ({item['price']} ر.س)" for item in cart])
         msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 العميل: {customer_email}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
         
-        # إرسال مباشر وفوري لتيليجرام بدون خيوط خلفية
+        # إرسال مباشر وفوري لتيليجرام
         send_telegram_order_notification(msg, order_id)
         
         session['cart'] = []
@@ -531,7 +533,7 @@ def telegram_webhook():
             status_suffix = ""
             
             if action == 'confirm':
-                status_suffix = "\n\n✨ **حالة الطلب:** تم التأكيد بنجاح ✅"
+                status_suffix = "\n\n✨ حالة الطلب: تم التأكيد بنجاح ✅"
                 response_text = f"تم تأكيد الطلب #{order_id} بنجاح!"
                 if order_id != '999':
                     conn = get_db_connection()
@@ -540,7 +542,7 @@ def telegram_webhook():
                     conn.close()
                 
             elif action == 'cancel':
-                status_suffix = "\n\n🚫 **حالة الطلب:** تم إلغاء الطلب ❌"
+                status_suffix = "\n\n🚫 حالة الطلب: تم إلغاء الطلب ❌"
                 response_text = f"تم إلغاء الطلب #{order_id}."
                 if order_id != '999':
                     conn = get_db_connection()
@@ -560,8 +562,7 @@ def telegram_webhook():
             edit_payload = {
                 "chat_id": chat_id,
                 "message_id": message_id,
-                "text": original_text + status_suffix,
-                "parse_mode": "Markdown"
+                "text": original_text + status_suffix
             }
             try:
                 req = urllib.request.Request(edit_url, data=json.dumps(edit_payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
