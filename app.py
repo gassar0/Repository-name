@@ -1,11 +1,18 @@
 import csv
 import io
+import os
 import sqlite3
 from datetime import datetime
 from flask import Flask, Response, flash, redirect, render_template_string, request, session, url_for
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'smart_store_secret_key_12345'
+
+# إعداد مجلد رفع الصور
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_Name = 'store.db'
 
@@ -111,7 +118,7 @@ INDEX_TEMPLATE = '''
             <div class="product-grid">
                 {% for p in products %}
                 <div class="product-card">
-                    <img src="{{ p[5] if p[5] else 'https://via.placeholder.com/250x160?text=Product' }}" class="product-img" alt="{{ p[1] }}">
+                    <img src="{{ url_for('static', filename='uploads/' + p[5]) if p[5] else 'https://via.placeholder.com/250x160?text=Product' }}" class="product-img" alt="{{ p[1] }}">
                     <h3 style="margin: 5px 0;">{{ p[1] }}</h3>
                     <p style="margin: 5px 0; color: #8b949e;">البائع: {{ p[4] }} | الكمية المتاحة: {{ p[2] }}</p>
                     <p style="font-size: 1.2em; color: #3fb950; font-weight: bold; margin: 5px 0;">{{ p[3] }} ر.س</p>
@@ -135,13 +142,13 @@ INDEX_TEMPLATE = '''
     <div class="card">
         <h3>🔒 بوابة إدارة المتجر (للمسؤولين)</h3>
         <h4 style="margin-bottom: 5px;">📦 إضافة منتج جديد</h4>
-        <form action="{{ url_for('add_product') }}" method="POST">
+        <form action="{{ url_for('add_product') }}" method="POST" enctype="multipart/form-data">
             <input type="text" name="name" placeholder="اسم المنتج" required>
             <input type="number" name="quantity" placeholder="الكمية" required min="1">
             <input type="number" step="0.01" name="price" placeholder="السعر (ر.س)" required min="0">
             <input type="text" name="seller" placeholder="اسم البائع" value="محمد رجب" required>
-            <label style="display:block; margin-top:10px; color:#8b949e;">صورة المنتج (رابط أو مسار):</label>
-            <input type="text" name="image" placeholder="مثال: رابط الصورة أو اسم الملف">
+            <label style="display:block; margin-top:10px; color:#8b949e;">📷 اختر صورة المنتج من الاستوديو أو الجهاز:</label>
+            <input type="file" name="image" accept="image/*" required>
             <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">إضافة المنتج للمخزن</button>
         </form>
     </div>
@@ -269,12 +276,13 @@ EDIT_TEMPLATE = '''
 <div class="container">
     <div class="card">
         <h2>✏️ تعديل المنتج</h2>
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="text" name="name" value="{{ product[1] }}" required placeholder="اسم المنتج">
             <input type="number" name="quantity" value="{{ product[2] }}" required placeholder="الكمية" min="0">
             <input type="number" step="0.01" name="price" value="{{ product[3] }}" required placeholder="السعر" min="0">
             <input type="text" name="seller" value="{{ product[4] }}" required placeholder="اسم البائع">
-            <input type="text" name="image" value="{{ product[5] }}" placeholder="رابط الصورة">
+            <label style="display:block; margin-top:10px; color:#8b949e;">📷 تغيير صورة المنتج (اختياري):</label>
+            <input type="file" name="image" accept="image/*">
             <div class="flex" style="margin-top: 15px;">
                 <button type="submit" class="btn btn-primary" style="flex:1;">حفظ التعديلات</button>
                 <a href="{{ url_for('index') }}" class="btn btn-danger" style="flex:1; text-align:center;">إلغاء</a>
@@ -350,30 +358,46 @@ def add_product():
     quantity = int(request.form.get('quantity', 0))
     price = float(request.form.get('price', 0))
     seller = request.form.get('seller', 'محمد رجب')
-    image = request.form.get('image', '')
+    
+    filename = ''
+    file = request.files.get('image')
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        filename = f"{int(datetime.now().timestamp())}_{filename}"
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
     
     conn = sqlite3.connect(DB_Name)
     cursor = conn.cursor()
     cursor.execute("INSERT INTO products (name, quantity, price, seller, image) VALUES (?, ?, ?, ?, ?)",
-                   (name, quantity, price, seller, image))
+                   (name, quantity, price, seller, filename))
     conn.commit()
     conn.close()
     
-    flash('تم إضافة المنتج بنجاح للمخزن', 'success')
+    flash('تم إضافة المنتج بنجاح مع رفع الصورة', 'success')
     return redirect(url_for('index'))
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 def edit_product(id):
     conn = sqlite3.connect(DB_Name)
     cursor = conn.cursor()
+    
     if request.method == 'POST':
         name = request.form.get('name')
         quantity = int(request.form.get('quantity', 0))
         price = float(request.form.get('price', 0))
         seller = request.form.get('seller')
-        image = request.form.get('image')
-        cursor.execute("UPDATE products SET name=?, quantity=?, price=?, seller=?, image=? WHERE id=?",
-                       (name, quantity, price, seller, image, id))
+        
+        file = request.files.get('image')
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            filename = f"{int(datetime.now().timestamp())}_{filename}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            cursor.execute("UPDATE products SET name=?, quantity=?, price=?, seller=?, image=? WHERE id=?",
+                           (name, quantity, price, seller, filename, id))
+        else:
+            cursor.execute("UPDATE products SET name=?, quantity=?, price=?, seller=? WHERE id=?",
+                           (name, quantity, price, seller, id))
+            
         conn.commit()
         conn.close()
         flash('تم تحديث المنتج بنجاح', 'success')
