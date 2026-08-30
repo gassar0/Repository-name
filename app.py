@@ -4,6 +4,7 @@ import os
 import sqlite3
 import urllib.request
 import urllib.parse
+import urllib.error
 import json
 from datetime import datetime
 from flask import Flask, Response, flash, redirect, render_template_string, request, session, url_for
@@ -19,19 +20,23 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_Name = 'store.db'
 
-# إعدادات بوت تيليجرام (تم ربطها برقمك وبوتك الخاص بنجاح)
+# إعدادات بوت تيليجرام
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn808KuiqaVLQSERNxY2rstA8SF8JQ'  
 TELEGRAM_CHAT_ID = '8508616708'    
 
 def send_telegram_notification(message):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Telegram token or chat ID missing")
         return
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
         data = urllib.parse.urlencode(payload).encode('utf-8')
         req = urllib.request.Request(url, data=data)
-        urllib.request.urlopen(req, timeout=5)
+        with urllib.request.urlopen(req, timeout=10) as response:
+            print("Telegram response:", response.read().decode())
+    except urllib.error.HTTPError as e:
+        print("Telegram HTTPError:", e.code, e.read().decode())
     except Exception as e:
         print("Telegram notification error:", e)
 
@@ -508,7 +513,7 @@ def checkout():
     conn = sqlite3.connect(DB_Name)
     cursor = conn.cursor()
     
-    order_summary_text = f"🛒 *طلب شراء جديد تم تنفيذه!*\n👤 العميل: `{user_email}`\n\n"
+    order_summary_text = f"🛒 طلب شراء جديد تم تنفيذه!\n👤 العميل: {user_email}\n\n"
     total_order_price = 0
 
     for item in cart:
@@ -531,7 +536,7 @@ def checkout():
                 cursor.execute("INSERT INTO orders (user_email, product_name, quantity, total_price, created_at) VALUES (?, ?, ?, ?, ?)",
                                (user_email, p_name, buy_qty, item_total, created_at))
                 
-                order_summary_text += f"• {p_name} (الكمية: {buy_qty}) - السعر: {item_total} ر.س\n"
+                order_summary_text += f"- {p_name} (الكمية: {buy_qty}) - السعر: {item_total} ر.س\n"
             else:
                 flash(f'عذراً، الكمية غير متوفرة حالياً للمنتج: {p_name}', 'danger')
                 conn.close()
@@ -540,7 +545,7 @@ def checkout():
     conn.commit()
     conn.close()
     
-    order_summary_text += f"\n💰 *الإجمالي الكلي:* {total_order_price} ر.س"
+    order_summary_text += f"\n💰 الإجمالي الكلي: {total_order_price} ر.س"
     send_telegram_notification(order_summary_text)
     
     session['cart'] = []
