@@ -8,7 +8,7 @@ import urllib.error
 import json
 import traceback
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, Response
+from flask import Flask, render_template, render_template_string, request, jsonify, redirect, url_for, session, Response
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -24,6 +24,43 @@ DB_Name = 'store.db'
 # إعدادات بوت تيليجرام المحدثة بالأزرار التفاعلية
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
 TELEGRAM_CHAT_ID = '8508616708'
+
+# قالب صفحة الدخول والتسجيل المدمج لمنع أخطاء الملفات المفقودة
+AUTH_HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if mode == 'login' %}تسجيل الدخول{% else %}إنشاء حساب جديد{% endif %}</title>
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #161b22; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 350px; text-align: center; border: 1px solid #30363d; }
+        input { width: 90%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 6px; }
+        button { width: 100%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #2ea043; }
+        a { color: #58a6ff; text-decoration: none; display: block; margin-top: 15px; }
+        .error { color: #f85149; margin-bottom: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>{% if mode == 'login' %}🔑 تسجيل الدخول{% else %}📝 إنشاء حساب جديد{% endif %}</h2>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <form method="POST">
+            <input type="text" name="username" placeholder="اسم المستخدم" required autocomplete="off"><br>
+            <input type="password" name="password" placeholder="كلمة المرور" required><br>
+            <button type="submit">{% if mode == 'login' %}دخول{% else %}تسجيل{% endif %}</button>
+        </form>
+        {% if mode == 'login' %}
+            <a href="{{ url_for('register') }}">ليس لديك حساب؟ إنشاء حساب جديد</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">لديك حساب بالفعل؟ تسجيل الدخول</a>
+        {% endif %}
+        <a href="{{ url_for('index') }}">العودة للرئيسية</a>
+    </div>
+</body>
+</html>
+"""
 
 def get_db_connection():
     conn = sqlite3.connect(DB_Name)
@@ -63,7 +100,6 @@ def init_db():
 
 init_db()
 
-# دالة إرسال الإشعار مع الأزرار التفاعلية
 def send_telegram_order_notification(order_details, order_id):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
@@ -126,7 +162,7 @@ def login():
         else:
             error = "اسم المستخدم أو كلمة المرور غير صحيحة"
             
-    return render_template('auth.html', mode='login', error=error)
+    return render_template_string(AUTH_HTML_TEMPLATE, mode='login', error=error)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -145,7 +181,7 @@ def register():
         except sqlite3.IntegrityError:
             error = "اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر."
             
-    return render_template('auth.html', mode='register', error=error)
+    return render_template_string(AUTH_HTML_TEMPLATE, mode='register', error=error)
 
 @app.route('/logout')
 def logout():
