@@ -95,7 +95,8 @@ def index():
         conn.close()
         
         cart = session.get('cart', [])
-        return render_template('index.html', products=products, cart=cart, orders=orders)
+        # تم ضبطه على store.html مطابقة لاسم الملف الموجود لديك في مجلد templates
+        return render_template('store.html', products=products, cart=cart, orders=orders)
     except Exception as e:
         print("--- TEMPLATE RENDERING ERROR TRACEBACK ---")
         traceback.print_exc()
