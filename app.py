@@ -1,5 +1,3 @@
-import csv
-import io
 import os
 import sqlite3
 import urllib.request
@@ -15,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = 'smart_store_secret_key_12345'
 
 # ==========================================
-# ⚙️ إعدادات تيليجرام (قم بمراجعتها هنا)
+# ⚙️ إعدادات تيليجرام
 # ==========================================
 TELEGRAM_BOT_TOKEN = '8969435828:AAEsccn8O8KuiqaVLQSERnxY2rstA8SF8JQ'
 TELEGRAM_CHAT_ID = '8508616708'
@@ -143,9 +141,11 @@ STORE_HTML_TEMPLATE = """
                 <h3 style="margin-top: 15px; color: #3fb950;">الإجمالي الكلي: {{ ns.total }} ر.س</h3>
                 
                 <form action="{{ url_for('checkout') }}" method="POST" onsubmit="alert('🚀 جاري إرسال الطلب لتيليجرام...');" style="margin-top: 15px;">
-                    <input type="email" name="email" placeholder="بريدك الإلكتروني (اختياري)" value="mmmmm_mmmmm319@yahoo.com">
+                    <input type="email" name="email" placeholder="البريد الإلكتروني" value="mmmmm_mmmmm319@yahoo.com" required>
+                    <input type="text" name="phone" placeholder="رقم الهاتف للتواصل والتوصيل" required>
+                    <input type="text" name="address" placeholder="عنوان التوصيل (المدينة، الحي، الشارع)" required>
                     <input type="hidden" name="total" value="{{ ns.total }}">
-                    <button type="submit" class="btn" style="width: 100%; background-color: #238636; padding: 12px; font-size: 16px;">🚀 إتمام الشراء وإرسال الطلب لتيليجرام</button>
+                    <button type="submit" class="btn" style="width: 100%; background-color: #238636; padding: 12px; font-size: 16px; margin-top: 10px;">🚀 إتمام الشراء وإرسال الطلب لتيليجرام</button>
                 </form>
             {% else %}
                 <p style="text-align: center; color: #8b949e;">سلة الشراء فارغة حالياً.</p>
@@ -187,7 +187,11 @@ STORE_HTML_TEMPLATE = """
                         <td>{{ p.quantity }}</td>
                         <td>{{ p.seller }}</td>
                         <td>
-                            <a href="{{ url_for('add_to_cart', id=p.id) }}" class="btn" style="padding: 5px 10px; font-size: 12px; margin-bottom: 4px; display: inline-block;">🛒 شراء</a>
+                            {% if p.quantity > 0 %}
+                                <a href="{{ url_for('add_to_cart', id=p.id) }}" class="btn" style="padding: 5px 10px; font-size: 12px; margin-bottom: 4px; display: inline-block;">🛒 شراء</a>
+                            {% else %}
+                                <span style="color: #da3633; font-size: 12px; font-weight: bold;">نفذت الكمية</span>
+                            {% endif %}
                             {% if user %}
                                 <a href="{{ url_for('delete_product', id=p.id) }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; display: inline-block;">حذف</a>
                             {% endif %}
@@ -220,6 +224,8 @@ STORE_HTML_TEMPLATE = """
                     <tr>
                         <th>رقم الطلب</th>
                         <th>البريد الإلكتروني</th>
+                        <th>الهاتف</th>
+                        <th>العنوان</th>
                         <th>الإجمالي</th>
                         <th>الحالة</th>
                     </tr>
@@ -227,6 +233,8 @@ STORE_HTML_TEMPLATE = """
                     <tr>
                         <td>#{{ o.id }}</td>
                         <td>{{ o.customer_email }}</td>
+                        <td>{{ o.phone if o.phone else 'غير متوفر' }}</td>
+                        <td>{{ o.address if o.address else 'غير متوفر' }}</td>
                         <td>{{ o.total }} ر.س</td>
                         <td>{{ o.status if o.status else 'جديد' }}</td>
                     </tr>
@@ -265,6 +273,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_email TEXT,
+            phone TEXT,
+            address TEXT,
             total REAL,
             status TEXT DEFAULT 'جديد'
         )
@@ -278,6 +288,8 @@ def init_db():
     ''')
     
     try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN phone TEXT")
+        cursor.execute("ALTER TABLE orders ADD COLUMN address TEXT")
         cursor.execute("ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'جديد'")
     except sqlite3.OperationalError:
         pass
@@ -287,7 +299,6 @@ def init_db():
 
 init_db()
 
-# دالة إرسال تيليجرام (بدون Markdown لتجنب أخطاء الرموز)
 def send_telegram_order_notification(order_details, order_id):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
@@ -412,7 +423,7 @@ def add_to_cart(id):
     product = conn.execute("SELECT * FROM products WHERE id = ?", (id,)).fetchone()
     conn.close()
     
-    if product:
+    if product and product['quantity'] > 0:
         if 'cart' not in session:
             session['cart'] = []
         cart = session['cart']
@@ -481,6 +492,8 @@ def delete_product(id):
 def checkout():
     try:
         customer_email = request.form.get('email', 'mmmmm_mmmmm319@yahoo.com')
+        phone = request.form.get('phone', 'غير متوفر')
+        address = request.form.get('address', 'غير متوفر')
         total_val = request.form.get('total', '0')
         try:
             total = float(total_val)
@@ -493,16 +506,23 @@ def checkout():
             
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO orders (customer_email, total, status) VALUES (?, ?, ?)", 
-                       (customer_email, total, 'جديد'))
+        
+        # 1. تسجيل الطلب مع الهاتف والعنوان
+        cursor.execute("INSERT INTO orders (customer_email, phone, address, total, status) VALUES (?, ?, ?, ?, ?)", 
+                       (customer_email, phone, address, total, 'جديد'))
         order_id = cursor.lastrowid
+        
+        # 2. خصم الكمية تلقائياً من المخزون
+        for item in cart:
+            product_id = item['id']
+            cursor.execute("UPDATE products SET quantity = quantity - 1 WHERE id = ? AND quantity > 0", (product_id,))
+            
         conn.commit()
         conn.close()
         
         items_summary = "\n".join([f"- {item['name']} ({item['price']} ر.س)" for item in cart])
-        msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 العميل: {customer_email}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
+        msg = f"🛒 طلب شراء جديد عبر المتجر!\n👤 البريد: {customer_email}\n📞 الهاتف: {phone}\n📍 العنوان: {address}\n\nالمنتجات المطلوبة:\n{items_summary}\n\n💰 الإجمالي الكلي: {total} ر.س"
         
-        # إرسال مباشر وفوري لتيليجرام
         send_telegram_order_notification(msg, order_id)
         
         session['cart'] = []
@@ -535,7 +555,7 @@ def telegram_webhook():
             if action == 'confirm':
                 status_suffix = "\n\n✨ حالة الطلب: تم التأكيد بنجاح ✅"
                 response_text = f"تم تأكيد الطلب #{order_id} بنجاح!"
-                if order_id != '999':
+                if order_id.isdigit():
                     conn = get_db_connection()
                     conn.execute("UPDATE orders SET status = 'مؤكد' WHERE id = ?", (order_id,))
                     conn.commit()
@@ -544,7 +564,7 @@ def telegram_webhook():
             elif action == 'cancel':
                 status_suffix = "\n\n🚫 حالة الطلب: تم إلغاء الطلب ❌"
                 response_text = f"تم إلغاء الطلب #{order_id}."
-                if order_id != '999':
+                if order_id.isdigit():
                     conn = get_db_connection()
                     conn.execute("UPDATE orders SET status = 'ملغي' WHERE id = ?", (order_id,))
                     conn.commit()
